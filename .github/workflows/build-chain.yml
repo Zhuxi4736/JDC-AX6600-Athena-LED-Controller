@@ -105,7 +105,7 @@ jobs:
         include:
           - type: ipk
             name: Stable (23.05) ipq60xx
-            sdk_url: "https://downloads.openwrt.org/releases/23.05.5/targets/ipq60xx/generic"
+            sdk_url: "https://downloads.openwrt.org/releases/23.05.5/targets/qualcommax/ipq60xx"
             use_apk: false
           - type: apk
             name: Snapshot (Qualcommax)
