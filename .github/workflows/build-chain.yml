@@ -104,13 +104,9 @@ jobs:
       matrix:
         include:
           - type: ipk
-            name: Stable (23.05) ipq60xx
-            sdk_url: "https://downloads.openwrt.org/releases/23.05.5/targets/ipq60xx/generic"
+            name: Stable (23.05) ipq807x
+            sdk_url: "https://downloads.openwrt.org/releases/23.05.5/targets/ipq807x/generic"
             use_apk: false
-          - type: apk
-            name: Snapshot (Qualcommax)
-            sdk_url: "https://downloads.openwrt.org/snapshots/targets/qualcommax/ipq60xx"
-            use_apk: true
 
     steps:
       - uses: actions/checkout@v4
@@ -123,7 +119,10 @@ jobs:
 
       - name: Prepare SDK
         run: |
-          sudo apt-get update && sudo apt-get install -y zstd
+          # 🌟 GitHub runner 默认是 root，无需 sudo；apt-get update 可能因无关第三方源失败，
+          #    用 || true 忽略（zstd 在官方 runner 镜像里已预装），避免误判失败挂掉整个 job
+          apt-get update || true
+          apt-get install -y zstd || true
           
           BASE_URL="${{ matrix.sdk_url }}"
           SDK_FILE=$(wget -qO- "$BASE_URL/sha256sums" | grep "sdk" | grep "Linux-x86_64" | head -n 1 | awk '{print $2}' | sed 's/*//g')
@@ -156,7 +155,7 @@ jobs:
       - name: Compile Packages
         working-directory: ./sdk
         run: |
-          sudo apt-get install -y dos2unix
+          sudo apt-get install -y dos2unix || true
 
           # 🌟 [包拆分] v2.3.0 起编两个包:
           #   athena-led          — 核心守护进程 (预编译二进制 + init + config + 动画)

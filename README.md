@@ -21,6 +21,31 @@
 * **全固件兼容**: GPIO 双后端自动适配 (官方 OpenWrt / QWRT / iStoreOS),LuCI JS 界面。
 * **交互**: 物理按键短按切台 / 双击回首页 / 长按息屏。
 
+### 🐾 新增：AI 虚拟宠物 (v2.6.0)
+把你的雅典娜路由器变成一只「会反映 AI 心情的小机器人」——屏幕就是它的脸。
+
+* **用途**：让路由器 LED 屏显示可自定义的像素表情 / 状态（CPU 占用率、上下行网速、时间、文字、GIF 转的像素动画）。由外部程序（如 AI 助手 Hermes 的生命周期状态）通过 HTTP 一行指令驱动，让屏幕「反映心情」。
+* **完全自定义**：状态→显示内容的映射写在 `/etc/athena_led/pet.json`（网页可直接编辑，零命令行）。例如：
+  ```json
+  {
+    "thinking": "pet_thinking.bin",
+    "failed":   "pet_failed.bin",
+    "angry":    "cpu",
+    "idle":     "time"
+  }
+  ```
+  - 值可以是 **动画文件**（`pet_*.bin`，27×5 单色像素动画，由 GIF 转来）；
+  - 也可以是 **模块名**：`cpu` / `updl`(上下行) / `mem` / `load` / `time`(时间)；
+  - 或 **任意文字**。
+* **HTTP 转发**：路由器侧常驻 `athena-pet-relay`（LuCI 启动项可管），监听 LAN `:8080`，把请求翻译成 LED 控制指令：
+  ```bash
+  curl -X POST http://路由器IP:8080/pet/thinking   # 显示"思考"表情
+  curl -X POST http://路由器IP:8080/petb/failed    # 先报幕"FAILED"再切裂开脸
+  curl -X POST http://路由器IP:8080/petidle/60     # 空闲60秒后回 idle 态
+  ```
+* **图形化管理**：LuCI → Athena LED → 🐾 虚拟宠物，网页编辑映射表、保存即重载，无需碰命令行。
+* **预置 8 种表情**：thinking / run / wave / jump / failed / love / waiting / idle（由 `tools/gen_pet_bins.py` 生成，`tools/gif2bin.py` 可把任意 GIF 转成新表情 `.bin`）。
+
 ### 📥 安装方法 (推荐)
 
 请根据您的 OpenWrt 系统版本选择对应的安装方式，无需自行编译。
