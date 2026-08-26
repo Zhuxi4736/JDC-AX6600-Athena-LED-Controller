@@ -104,8 +104,8 @@ jobs:
       matrix:
         include:
           - type: ipk
-            name: Stable (23.05)
-            sdk_url: "https://downloads.openwrt.org/releases/23.05.5/targets/ipq807x/generic"
+            name: Stable (23.05) ipq60xx
+            sdk_url: "https://downloads.openwrt.org/releases/23.05.5/targets/ipq60xx/generic"
             use_apk: false
           - type: apk
             name: Snapshot (Qualcommax)

@@ -10,6 +10,11 @@
 //   echo "show 10 HELLO"  | nc 127.0.0.1 8377   # 插播文本 10 秒 (自动化/HA 通知)
 //   echo "ping"           | nc 127.0.0.1 8377   # 存活探测 -> PONG
 //
+// 🌟 [v2.6.0 虚拟宠物] 新增 pet / petb / petidle 指令：
+//   echo "pet thinking"   | nc 127.0.0.1 8377   # 显示 pet.json 里 thinking 对应的内容
+//   echo "petb failed"    | nc 127.0.0.1 8377   # 先报幕再切表情
+//   echo "petidle 60"     | nc 127.0.0.1 8377   # 空闲 60 秒后回到 idle 态
+//
 // 仅绑定回环地址，不对外网开放。也是按键双击、未来 HA 集成的共享地基。
 // ==========================================
 use std::sync::{Arc, Mutex};
@@ -37,12 +42,61 @@ pub struct ControlState {
     pub pending_show: Option<(String, u64)>,
     // 🌟 [v2.5.0] 系统告警队列 (net_agent 等后台任务写入，调度器边界消费)
     pub pending_alerts: Vec<Alert>,
+
+    // 🌟 [v2.6.0 虚拟宠物] 待播放的宠物请求: (解析后的显示规格, 秒数)
+    //   规格格式:
+    //     "pet_xxx.bin"        -> 播放动画文件 (/etc/athena_led/anim/)
+    //     "module:cpu"         -> 循环显示某模块数据 (cpu/updl/mem/load/time)
+    //     "text:Zzz"           -> 静态显示文字
+    pub pending_pet: Option<(String, u64)>,
+    // 空闲超时(秒): 超过该时间无新宠物请求 -> 自动回到 idle 态
+    pub pet_idle_secs: Option<u64>,
+    // 上次宠物请求的时刻 (用于空闲计时，调度器维护)
+    pub pet_last_active: Option<std::time::Instant>,
 }
 
 pub type SharedControl = Arc<Mutex<ControlState>>;
 
 pub fn new_shared() -> SharedControl {
     Arc::new(Mutex::new(ControlState::default()))
+}
+
+// ==========================================
+// 🌟 [v2.6.0 虚拟宠物] 从 /etc/athena_led/pet.json 解析状态名 -> 显示规格
+//   pet.json 示例:
+//   {
+//     "thinking": "pet_thinking.bin",
+//     "angry":    "cpu",
+//     "idle":     "clock"
+//   }
+// 返回 None 表示文件缺失或状态名不存在
+// ==========================================
+fn resolve_pet(state_name: &str) -> Option<String> {
+    let raw = std::fs::read_to_string("/etc/athena_led/pet.json").ok()?;
+    let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let val = v.get(state_name)?.as_str()?;
+    Some(val.to_string())
+}
+
+// 把 pet.json 的显示值规整成 scheduler 能消费的 (spec, secs)
+// 默认常驻 300 秒 (等效一直显示直到被新请求覆盖)
+fn build_pet_request(display: &str) -> (String, u64) {
+    let secs = 300u64;
+    let spec = if display.ends_with(".bin") {
+        // 动画文件
+        display.to_string()
+    } else if matches!(display, "cpu" | "updl" | "mem" | "load" | "time" | "clock") {
+        // 模块类: clock 映射到 timeBlink 显示时间
+        if display == "clock" {
+            "module:timeBlink".to_string()
+        } else {
+            format!("module:{}", display)
+        }
+    } else {
+        // 普通文字
+        format!("text:{}", display)
+    };
+    (spec, secs)
 }
 
 // 处理单条指令，返回响应文本
@@ -122,8 +176,64 @@ fn handle_command(
             }
         }
 
+        // ==========================================
+        // 🌟 [v2.6.0 虚拟宠物] pet / petb / petidle
+        // ==========================================
+        "pet" => {
+            let state_name = parts.next().unwrap_or("").trim();
+            if state_name.is_empty() {
+                return "ERR 用法: pet <状态名>".to_string();
+            }
+            let display = match resolve_pet(state_name) {
+                Some(d) => d,
+                None => return format!("ERR 未知宠物状态: {}", state_name),
+            };
+            let (spec, secs) = build_pet_request(&display);
+            if let Ok(mut st) = state.lock() {
+                st.pending_pet = Some((spec, secs));
+                st.pet_last_active = Some(std::time::Instant::now());
+            }
+            // 打断当前模块让宠物尽快上屏
+            let current = *tx.borrow();
+            if current > 0 { let _ = tx.send(current + 1); }
+            "OK".to_string()
+        }
+
+        "petb" => {
+            // pet + 报幕: 先 show 2 秒大写状态名，再切表情
+            let state_name = parts.next().unwrap_or("").trim();
+            if state_name.is_empty() {
+                return "ERR 用法: petb <状态名>".to_string();
+            }
+            let display = match resolve_pet(state_name) {
+                Some(d) => d,
+                None => return format!("ERR 未知宠物状态: {}", state_name),
+            };
+            let banner = state_name.to_uppercase();
+            if let Ok(mut st) = state.lock() {
+                st.pending_show = Some((banner, 2));
+                let (spec, secs) = build_pet_request(&display);
+                st.pending_pet = Some((spec, secs));
+                st.pet_last_active = Some(std::time::Instant::now());
+            }
+            let current = *tx.borrow();
+            if current > 0 { let _ = tx.send(current + 1); }
+            "OK".to_string()
+        }
+
+        "petidle" => {
+            let secs = parts.next().and_then(|s| s.parse::<u64>().ok());
+            match secs {
+                Some(s) if s >= 1 => {
+                    if let Ok(mut st) = state.lock() { st.pet_idle_secs = Some(s); }
+                    "OK".to_string()
+                }
+                _ => "ERR 用法: petidle <1-N秒>".to_string(),
+            }
+        }
+
         "" => "ERR 空指令".to_string(),
-        other => format!("ERR 未知指令: {} (可用: next/home/off/wake/toggle/light/show/ping)", other),
+        other => format!("ERR 未知指令: {} (可用: next/home/off/wake/toggle/light/show/ping/pet/petb/petidle)", other),
     }
 }
 
@@ -242,5 +352,21 @@ mod tests {
         assert_eq!(*rx.borrow(), 1);
         assert!(handle_command("foobar", &tx, &st).starts_with("ERR"));
         assert_eq!(handle_command("ping", &tx, &st), "PONG");
+    }
+
+    // 🌟 [v2.6.0] 宠物指令测试
+    #[test]
+    fn cmd_pet_unknown() {
+        let (tx, _rx, st) = setup();
+        // 没有 pet.json 时返回 ERR
+        assert!(handle_command("pet thinking", &tx, &st).starts_with("ERR"));
+    }
+
+    #[test]
+    fn cmd_petidle() {
+        let (tx, _rx, st) = setup();
+        assert_eq!(handle_command("petidle 60", &tx, &st), "OK");
+        assert_eq!(st.lock().unwrap().pet_idle_secs, Some(60u64));
+        assert!(handle_command("petidle 0", &tx, &st).starts_with("ERR"));
     }
 }

@@ -276,6 +276,59 @@ pub async fn process_loop(
             }
 
             // ==========================================
+            // 🌟 [v2.6.0 虚拟宠物] 消费 pending_pet
+            // 优先级: 告警 > 宠物 > 普通模块。宠物显示期间不响应按键打断
+            // (play_animation 内部为同步阻塞循环)，但 HTTP 新请求会在本轮结束后生效。
+            // ==========================================
+            let pet_req = control.lock().ok().and_then(|mut st| st.pending_pet.take());
+            if let Some((spec, secs)) = pet_req {
+                println!("🐾 [宠物] 显示 {} 秒: {}", secs, spec);
+                let _ = rx.borrow_and_update();
+                let pet_start = Instant::now();
+                let mut pet_interrupted = false;
+                while pet_start.elapsed() < Duration::from_secs(secs) {
+                    // 每次刷新都更新活跃时间 (供空闲计时)
+                    if let Ok(mut st) = control.lock() {
+                        st.pet_last_active = Some(std::time::Instant::now());
+                    }
+                    if spec.ends_with(".bin") {
+                        // 动画文件: 交给 play_animation (内部 15fps 循环, 阻塞整段时长)
+                        let _ = screen.play_animation(&spec, secs, get_leds(monitor, args)).await;
+                        break;
+                    } else if let Some(module) = spec.strip_prefix("module:") {
+                        // 模块数据类 (cpu/updl/mem/load/timeBlink)
+                        let text = match module {
+                            "cpu" => monitor.get_cpu_usage_string(),
+                            "updl" => monitor.get_updl_string(),
+                            "mem" => monitor.get_mem_string(),
+                            "load" => monitor.get_load_string(),
+                            "timeBlink" | "time" => Local::now().format("%H:%M").to_string(),
+                            _ => module.to_string(),
+                        };
+                        tokio::select! {
+                            _ = async {
+                                let _ = screen.write_data(text.as_bytes(), get_leds(monitor, args)).await;
+                                tokio::time::sleep(Duration::from_millis(100)).await;
+                            } => {}
+                            Ok(_) = rx.changed() => { pet_interrupted = true; break; }
+                        }
+                    } else if let Some(txt) = spec.strip_prefix("text:") {
+                        tokio::select! {
+                            _ = async {
+                                let _ = screen.write_data(txt.as_bytes(), get_leds(monitor, args)).await;
+                                tokio::time::sleep(Duration::from_millis(100)).await;
+                            } => {}
+                            Ok(_) = rx.changed() => { pet_interrupted = true; break; }
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                if pet_interrupted && *rx.borrow() < 0 { break; }
+                // 宠物播放完毕，继续渲染当前模块
+            }
+
+            // ==========================================
             // 🚨 [v2.5.0 插播 2] 统一告警播报
             // 来源: monitor.poll_alerts (温度/断网恢复/新设备) + 后台队列 (IP 变化等)
             // 紧急告警 (blink) 闪烁 + 四状态灯全亮；通知类静态/滚动显示

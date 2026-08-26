@@ -5,7 +5,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=athena-led
-PKG_VERSION:=2.5.0
+PKG_VERSION:=2.6.0
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=unraveloop <https://github.com/unraveloop>
@@ -57,6 +57,11 @@ define Package/$(PKG_NAME)/install
 	# 3. init.d 守护脚本
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/athena_led.init $(1)/etc/init.d/athena_led
+
+	# 3.5 🌟 [v2.6.0] 虚拟宠物 HTTP 转发 + 默认表情映射
+	$(INSTALL_BIN) ./files/athena-pet-relay $(1)/etc/init.d/athena-pet-relay
+	$(INSTALL_DIR) $(1)/etc/athena_led
+	$(INSTALL_CONF) ./files/pet.json $(1)/etc/athena_led/pet.json
 
 	# 4. UCI 配置文件
 	$(INSTALL_DIR) $(1)/etc/config

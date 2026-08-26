@@ -1,0 +1,11 @@
+{
+  "thinking": "pet_thinking.bin",
+  "run": "pet_run.bin",
+  "wave": "pet_wave.bin",
+  "jump": "pet_jump.bin",
+  "failed": "pet_failed.bin",
+  "love": "pet_love.bin",
+  "waiting": "pet_waiting.bin",
+  "angry": "cpu",
+  "idle": "clock"
+}

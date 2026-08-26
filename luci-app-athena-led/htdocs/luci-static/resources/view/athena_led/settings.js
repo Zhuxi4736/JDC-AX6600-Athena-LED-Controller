@@ -606,6 +606,56 @@ return view.extend({
 		o.depends({ 'mqtt_broker': '', '!reverse': true });
 
 		// ============================================================
+		// 🌟 [v2.6.0 板块 8.5] 虚拟宠物 (AI 状态 -> 表情映射)
+		//   映射写在 /etc/athena_led/pet.json，用户可网页直接改，零命令行。
+		// ============================================================
+		s = m.section(form.NamedSection, 'general', 'settings', _('🐾 Virtual Pet (AI Mood)'));
+		s.addremove = false;
+		s.description = _('Map Hermes/AI agent states to LED expressions. State names are sent via HTTP: curl -X POST http://ROUTER:8080/pet/<state>');
+
+		o = s.option(form.Flag, 'pet_relay_enable', _('Enable Pet HTTP Relay'));
+		o.default = '1';
+		o.rmempty = false;
+		o.description = _('Listen on LAN :8080, translate HTTP /pet/<state> into LED commands. Manageable in System -> Startup.');
+
+		o = s.option(form.Value, 'pet_relay_port', _('Relay Port'));
+		o.datatype = 'port';
+		o.default = '8080';
+
+		// 映射表 (JSON 直编，最灵活；进阶用户也能手写)
+		o = s.option(form.TextValue, '_pet_json', _('State → Expression Map (pet.json)'));
+		o.rows = 12;
+		o.value('', '');
+		o.description = _('JSON format. Value = .bin animation file, or module name (cpu/updl/mem/load/time), or free text. Example: {"thinking":"pet_thinking.bin","angry":"cpu","idle":"time"}');
+		// 页面打开时拉取当前 pet.json 填入
+		fs.read('/etc/athena_led/pet.json').then(function(t) {
+			o.value('', t || '{}');
+			o.updateValue('', t || '{}');
+		}).catch(function() { o.updateValue('', '{}'); });
+
+		o = s.option(form.Button, '_pet_save', _('Save Pet Map & Reload'));
+		o.inputstyle = 'apply';
+		o.inputtitle = _('Save');
+		o.onclick = function() {
+			var txt = o.map().getElementById('_pet_json') ? null : null;
+			// 取 textarea 当前值
+			var node = document.querySelector('textarea[id*="_pet_json"]');
+			var json = node ? node.value : '';
+			if (!json) { ui.addNotification(null, E('p', _('Empty map, nothing to save.')), 'error'); return Promise.resolve(); }
+			try { JSON.parse(json); } catch (e) {
+				ui.addNotification(null, E('p', _('Invalid JSON: ') + e.message), 'error');
+				return Promise.resolve();
+			}
+			return fs.write('/etc/athena_led/pet.json', json).then(function() {
+				return fs.exec('/etc/init.d/athena_led', ['restart']);
+			}).then(function() {
+				ui.addNotification(null, E('p', _('Pet map saved & service reloaded.')), 'info');
+			}).catch(function(e) {
+				ui.addNotification(null, E('p', _('Save failed: ') + e.message), 'error');
+			});
+		};
+
+		// ============================================================
 		// 板块 9: 服务控制
 		// ============================================================
 		s = m.section(form.NamedSection, 'general', 'settings', _('Service Control'));

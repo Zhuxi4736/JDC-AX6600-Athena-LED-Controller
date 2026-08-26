@@ -1,0 +1,73 @@
+#!/bin/sh /etc/rc.common
+# ==========================================
+# athena-pet-relay — 雅典娜虚拟宠物 HTTP 转发
+# ==========================================
+# 监听路由器 LAN (默认 0.0.0.0:8080)，把 HTTP 请求翻译成 athena-led 控制接口指令:
+#   POST /pet/<状态名>    -> echo "pet <状态名>" | nc 127.0.0.1 8377
+#   POST /petb/<状态名>   -> echo "petb <状态名>" | nc 127.0.0.1 8377
+#   GET  /pet/<状态名>    -> 同上
+#   POST /petidle/<秒数>  -> echo "petidle <秒数>" | nc 127.0.0.1 8377
+#
+# 由 LuCI "系统 -> 启动项" 管理。
+# ==========================================
+USE_PROCD=1
+START=99
+STOP=10
+
+PORT=8080
+CONTROL_PORT=8377
+
+# 用 busybox httpd 起一个极简 CGI 服务器
+CGI_ROOT=/tmp/athena-pet-relay
+
+start_service() {
+    mkdir -p "$CGI_ROOT/cgi-bin"
+
+    # 写 CGI 脚本: 解析 PATH_INFO 转成 nc 指令
+    cat > "$CGI_ROOT/cgi-bin/pet" <<'EOF'
+#!/bin/sh
+# PATH_INFO 形如 /thinking 或 /b/thinking 或 /idle/60
+pi="${PATH_INFO:-/}"
+pi="${pi#/}"   # 去前导 /
+# 拆分第一段(动作) 与 余下(状态名)
+action="${pi%%/*}"
+rest="${pi#*/}"
+[ "$rest" = "$pi" ] && rest=""
+
+case "$action" in
+  b)    cmd="petb $rest" ;;
+  idle) cmd="petidle $rest" ;;
+  *)    cmd="pet $pi" ;;
+esac
+
+# 转发到 athena-led 控制接口
+resp=$(echo "$cmd" | nc -w 2 127.0.0.1 8377 2>/dev/null)
+[ -z "$resp" ] && resp="ERR (control port closed?)"
+
+printf "HTTP/1.0 200 OK\r\n"
+printf "Content-Type: text/plain\r\n"
+printf "Access-Control-Allow-Origin: *\r\n"
+printf "\r\n"
+printf "%s\n" "$resp"
+EOF
+    chmod +x "$CGI_ROOT/cgi-bin/pet"
+
+    procd_open_instance
+    procd_set_param command /usr/sbin/httpd
+    procd_append_param command -p "$PORT"
+    procd_append_param command -h "$CGI_ROOT"
+    procd_set_param respawn
+    procd_close_instance
+
+    echo "🐾 [athena-pet-relay] 已启动, 监听 :$PORT (control_port=$CONTROL_PORT)"
+}
+
+stop_service() {
+    # httpd 由 procd 管理, 这里清理 CGI 目录
+    rm -rf "$CGI_ROOT"
+    echo "🐾 [athena-pet-relay] 已停止"
+}
+
+service_triggers() {
+    procd_add_reload_trigger athena-pet-relay
+}
