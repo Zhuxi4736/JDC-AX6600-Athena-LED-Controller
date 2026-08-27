@@ -1,6 +1,10 @@
 # 🌟 [包拆分] athena-led 核心包 (OpenWrt 打包用，与同目录的 Rust 工程共存)
 # 负责: 预编译二进制 / init 脚本 / UCI 配置 / 预置动画 / find_button 探测脚本
 # 界面部分见 luci-app-athena-led (纯 UI，PKGARCH=all，依赖本包)
+#
+# 🌟 二进制来源: 由 CI (build-chain.yml 的 build_rust 阶段) 从本仓库 Rust 源码
+#    实际编译为 aarch64-unknown-linux-musl，产物放到 ./files/athena-led-bin。
+#    不再从上游 release 下载预编译包 —— 上游 ipq807x 二进制与 ipq60xx / QWRT QSDK12.5 不兼容。
 
 include $(TOPDIR)/rules.mk
 
@@ -8,13 +12,9 @@ PKG_NAME:=athena-led
 PKG_VERSION:=2.6.0
 PKG_RELEASE:=1
 
-PKG_MAINTAINER:=unraveloop <https://github.com/unraveloop>
+PKG_MAINTAINER:=Zhuxi4736
 PKG_LICENSE:=Apache-2.0
 PKG_LICENSE_FILES:=LICENSE
-
-PKG_SOURCE:=athena-led-aarch64-unknown-linux-musl-v$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://github.com/unraveloop/JDC-AX6600-Athena-LED-Controller/releases/download/v$(PKG_VERSION)/
-PKG_HASH:=skip
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -22,23 +22,21 @@ define Package/$(PKG_NAME)
 	SECTION:=utils
 	CATEGORY:=Utilities
 	TITLE:=JDCloud AX6600 (Athena) LED matrix screen daemon
-	URL:=https://github.com/unraveloop/JDC-AX6600-Athena-LED-Controller
+	URL:=https://github.com/Zhuxi4736/JDC-AX6600-Athena-LED-Controller
 	DEPENDS:=@(aarch64||arm)
 endef
 
 define Package/$(PKG_NAME)/description
 Rust daemon driving the JDCloud AX6600 (Athena) LED matrix screen.
-v2.3.0: dual GPIO backend (character device /dev/gpiochipN with
-sysfs fallback), works across QWRT / iStoreOS / official OpenWrt
-kernels without hardcoded GPIO numbers.
+Compiled from source in CI for ipq60xx / QWRT QSDK 12.5 (kernel 5.4.213).
 endef
 
+# 二进制由 CI 注入到 ./files/athena-led-bin，无需下载/解压
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
-	tar xf $(DL_DIR)/$(PKG_SOURCE) -C $(PKG_BUILD_DIR)
 endef
 
-# 二进制为预编译产物，无需编译步骤
+# 二进制为 CI 预编译产物，无需编译步骤
 define Build/Compile
 endef
 
@@ -47,9 +45,9 @@ define Package/$(PKG_NAME)/conffiles
 endef
 
 define Package/$(PKG_NAME)/install
-	# 1. 主程序
+	# 1. 主程序 (CI 编译产物, 见 files/athena-led-bin)
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/athena-led $(1)/usr/bin/
+	$(INSTALL_BIN) ./files/athena-led-bin $(1)/usr/bin/athena-led
 
 	# 2. 物理按键探测脚本 (去掉 .sh 后缀，提升命令逼格)
 	$(INSTALL_BIN) ./files/find_button.sh $(1)/usr/bin/find_button

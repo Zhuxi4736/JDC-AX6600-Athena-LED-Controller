@@ -50,49 +50,20 @@ jobs:
         run: |
           cargo zigbuild --release --target aarch64-unknown-linux-musl
 
-      # 5. 打包二进制 (这里是关键！强制使用长文件名)
-      - name: Package Binary
+      # 5. 打包二进制 (放入 athena-led/files/athena-led-bin, 供 OpenWrt 包直接安装)
+      - name: Stage Binary into package files/
         id: package
         working-directory: ./athena-led
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          
-          # ⚠️ 强制指定为 Makefile 要求的长文件名格式 (带架构名)
-          FILENAME="athena-led-aarch64-unknown-linux-musl-v${VERSION}.tar.gz"
-          
-          mkdir -p dist
-          cp target/aarch64-unknown-linux-musl/release/athena-led dist/
+          mkdir -p files
+          cp target/aarch64-unknown-linux-musl/release/athena-led files/athena-led-bin
+          chmod +x files/athena-led-bin
+          echo "✅ Staged binary -> files/athena-led-bin ($(ls -la files/athena-led-bin | awk '{print $5}') bytes)"
 
-          cd dist
-          tar -czvf ../$FILENAME athena-led
-          cd ..
-
-          # 🌟 [v2.3.1] 生成校验和，供用户验证下载完整性
-          sha256sum $FILENAME > $FILENAME.sha256
-          cat $FILENAME.sha256
-
-          echo "ASSET_NAME=$FILENAME" >> $GITHUB_OUTPUT
-          echo "✅ Packed binary: $FILENAME"
-
-      # 6. 上传 Rust 二进制 + 校验和
-      # 🌟 [修复] 仅 release 事件上传 (workflow_dispatch 手动触发无 tag 上下文会失败)
-      - name: Upload Rust Binary to Release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            athena-led/*.tar.gz
-            athena-led/*.sha256
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 7. 传递给 OpenWrt 任务
-      - name: Pass Artifact to Next Job
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-binary-tarball
-          path: athena-led/*.tar.gz
-          retention-days: 1
+      # 6. 传递给 OpenWrt 任务 (二进制已 staged 进 athena-led/files, 随仓库 checkout 一起进入 SDK)
+      - name: Note staged binary
+        run: echo "✅ Binary staged in athena-led/files/athena-led-bin; will be injected via checkout"
 
   # 🔵 第二阶段：编译 OpenWrt 安装包
   build_openwrt:
@@ -104,18 +75,12 @@ jobs:
       matrix:
         include:
           - type: ipk
-            name: Stable (23.05) ipq807x
+            name: ipq60xx (QWRT QSDK12.5) aarch64
             sdk_url: "https://downloads.openwrt.org/releases/23.05.5/targets/ipq807x/generic"
             use_apk: false
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download Rust Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rust-binary-tarball
-          path: local_dl/
 
       - name: Prepare SDK
         run: |
@@ -141,7 +106,6 @@ jobs:
       - name: Inject Source into SDK
         run: |
           mkdir -p sdk/dl
-          cp local_dl/*.tar.gz sdk/dl/
 
       - name: Configure Feeds
         working-directory: ./sdk
@@ -170,15 +134,14 @@ jobs:
           cp -r "$GITHUB_WORKSPACE/luci-app-athena-led"/* package/luci-app-athena-led/
 
           # 3. 🚨 强制转为 Linux 换行符 (专治 Windows 换行符崩溃)；
-          #    排除二进制动画文件，防止 .bin 被 dos2unix 毁掉
-          find package/athena-led package/luci-app-athena-led -type f ! -name "*.bin" -exec dos2unix {} +
+          #    排除二进制动画文件(.bin)与 CI 编译产物(athena-led-bin)，防止被 dos2unix 毁掉
+          find package/athena-led package/luci-app-athena-led -type f ! -name "*.bin" ! -name "athena-led-bin" -exec dos2unix {} +
 
           # 4. 🚨 移除会导致找不到密钥而崩溃的 CONFIG_SIGNED_PACKAGES
           echo "CONFIG_PACKAGE_athena-led=m" > .config
           echo "CONFIG_PACKAGE_luci-app-athena-led=m" >> .config
 
           make defconfig
-          make package/athena-led/download V=s
           make package/athena-led/compile V=s -j$(nproc)
           make package/luci-app-athena-led/compile V=s -j$(nproc)
 

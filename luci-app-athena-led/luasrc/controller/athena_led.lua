@@ -47,7 +47,7 @@ function act_status()
             if cf then
                 local cmd = cf:read("*a") or ""
                 cf:close()
-                if cmd:find("athena%-led") then
+                if cmd:find("/usr/bin/athena%-led") then
                     e.running = true
                     e.pid = pid
                 end
@@ -55,7 +55,7 @@ function act_status()
         end
     end
     if not e.running then
-        local pid = sys.exec("pgrep -f /usr/bin/athena-led | head -n 1")
+        local pid = sys.exec("pgrep -x athena_led | head -n 1")
         if pid and pid ~= "" then
             e.running = true
             e.pid = string.gsub(pid, "\n", "")
@@ -236,7 +236,7 @@ function act_pet_gpio()
     local base = http.formvalue("base") or "auto"
     local port = uci:get("athena_led", "general", "control_port") or "8377"
     local bin = "/usr/bin/athena_led"
-    if not sys.exec("test -x " .. bin):match("0") then
+    if not sys.exec("test -x " .. bin .. " && echo 1 || echo 0"):match("1") then
         http.prepare_content("application/json")
         http.write('{"ok":false,"msg":"核心程序不存在"}')
         return
