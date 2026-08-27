@@ -68,6 +68,29 @@ local url_gpio    = luci.dispatcher.build_url("admin","services","athena_led","p
     <button class="cbi-button cbi-button-remove" id="prevStop" style="margin-left:6px">停止并回轮播</button>
     <span id="prevMsg" style="margin-left:8px"></span>
   </div>
+  <div style="margin-top:8px">
+    显示方式：
+    <select id="prevMode" class="cbi-input-select" style="width:140px">
+      <option value="">默认（瞬切/居中）</option>
+      <option value="static">瞬切（整屏一帧）</option>
+      <option value="type">逐字冒出（从左）</option>
+      <option value="flow">滚动</option>
+    </select>
+    速度(ms/帧)：
+    <input type="number" id="prevSpeed" class="cbi-input-text" value="100" min="30" max="1000" style="width:80px" />
+    <span style="margin-left:6px;color:#888">越小越快</span>
+  </div>
+</div>
+
+<div class="cbi-section">
+  <h3>机身指示灯（屏外小图标）</h3>
+  <p>雅典娜机身另有 4 颗独立 LED：时钟(CPU)、奖章(联网)、上箭头(上行)、下箭头(下行)。默认已为你全部关闭。需要时可单独打开。</p>
+  <label style="margin-right:14px"><input type="checkbox" id="ledClock" /> 时钟灯</label>
+  <label style="margin-right:14px"><input type="checkbox" id="ledMedal" /> 奖章灯</label>
+  <label style="margin-right:14px"><input type="checkbox" id="ledUp" /> 上箭头(上行)</label>
+  <label style="margin-right:14px"><input type="checkbox" id="ledDown" /> 下箭头(下行)</label>
+  <button class="cbi-button cbi-button-apply" id="ledSave" style="margin-left:8px">保存指示灯设置</button>
+  <span id="ledMsg" style="margin-left:8px"></span>
 </div>
 
 <div class="cbi-section">
@@ -218,12 +241,25 @@ document.getElementById('prevBtn').addEventListener('click', function(ev){
   else {
     var v=prevSel.value;
     if(v.startsWith('anim:')) spec=v.slice(5);
-    else if(v.startsWith('mod:')) spec=v.slice(4);
+    else if(v.startsWith('mod:')) spec=v.slice(4);  // 裸模块名, 后端自动补 module:
     else spec=v;
   }
   if(!spec){ document.getElementById('prevMsg').textContent='请选择或填写内容'; return; }
-  post(URL_PREVIEW, {spec:spec, secs:'10'}, function(j){
-    document.getElementById('prevMsg').textContent = (j&&j.ok)?'试播中（'+spec+'），约10秒后自动回轮播':'失败：'+(j&&j.msg?j.msg:'未知');
+  var mode=document.getElementById('prevMode').value;
+  var speed=document.getElementById('prevSpeed').value||'100';
+  // 后端 showraw 签名: spec secs [mode] [speed]
+  post(URL_PREVIEW, {spec:spec, secs:'10', mode:mode, speed:speed}, function(j){
+    document.getElementById('prevMsg').textContent = (j&&j.ok)?'试播中（'+spec+' '+mode+' '+'ms），约10秒后自动回轮播':'失败：'+(j&&j.msg?j.msg:'未知');
+  });
+});
+
+// 机身指示灯保存 (写 UCI disable_led_* 并重启)
+document.getElementById('ledSave').addEventListener('click', function(ev){
+  ev.preventDefault();
+  function on(id){ return document.getElementById(id).checked ? '0' : '1'; } // 勾选=亮(不禁用)=0
+  post(URL_GPIO, {action:'led', clock:on('ledClock'), medal:on('ledMedal'), up:on('ledUp'), down:on('ledDown')}, function(j){
+    document.getElementById('ledMsg').textContent = (j&&j.ok)?'已保存指示灯设置，服务重启中…':'失败：'+(j&&j.msg?j.msg:'未知');
+    refreshStatus();
   });
 });
 

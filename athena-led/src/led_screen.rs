@@ -399,6 +399,21 @@ impl LedScreen {
         Ok(())
     }
 
+    // 🌟 [v2.6.1] 逐字冒出渲染: 每帧多显示一个字符 (type 模式用)
+    pub async fn write_data_typed(&mut self, text: &[u8], status: u8, frame_ms: u64) -> Result<()> {
+        let content = std::str::from_utf8(text).unwrap_or("");
+        let chars: Vec<char> = content.chars().collect();
+        let mut shown = String::new();
+        for ch in chars {
+            shown.push(ch);
+            let _ = self.write_data(shown.as_bytes(), status).await;
+            tokio::time::sleep(Duration::from_millis(frame_ms.max(30))).await;
+        }
+        // 全部显示完后停留一拍再返回
+        tokio::time::sleep(Duration::from_millis(frame_ms.max(30) * 3)).await;
+        Ok(())
+    }
+
     // 1. 加上 async 关键字
     async fn flow(&mut self, data: &[u8], status: u8) -> Result<()> {
         let mut start = 0;

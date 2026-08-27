@@ -281,11 +281,12 @@ pub async fn process_loop(
             // (play_animation 内部为同步阻塞循环)，但 HTTP 新请求会在本轮结束后生效。
             // ==========================================
             let pet_req = control.lock().ok().and_then(|mut st| st.pending_pet.take());
-            if let Some((spec, secs)) = pet_req {
-                println!("🐾 [宠物] 显示 {} 秒: {}", secs, spec);
+            if let Some((spec, secs, mode, speed)) = pet_req {
+                println!("🐾 [宠物] 显示 {} 秒: {} (mode={}, speed={})", secs, spec, mode, speed);
                 let _ = rx.borrow_and_update();
                 let pet_start = Instant::now();
                 let mut pet_interrupted = false;
+                let frame_ms = if speed > 0 { speed } else { 100 } as u64;
                 while pet_start.elapsed() < Duration::from_secs(secs) {
                     // 每次刷新都更新活跃时间 (供空闲计时)
                     if let Ok(mut st) = control.lock() {
@@ -305,20 +306,28 @@ pub async fn process_loop(
                             "timeBlink" | "time" => Local::now().format("%H:%M").to_string(),
                             _ => module.to_string(),
                         };
-                        tokio::select! {
-                            _ = async {
-                                let _ = screen.write_data(text.as_bytes(), get_leds(monitor, args)).await;
-                                tokio::time::sleep(Duration::from_millis(100)).await;
-                            } => {}
-                            Ok(_) = rx.changed() => { pet_interrupted = true; break; }
+                        if mode == "type" {
+                            let _ = screen.write_data_typed(text.as_bytes(), get_leds(monitor, args), frame_ms).await;
+                        } else {
+                            tokio::select! {
+                                _ = async {
+                                    let _ = screen.write_data(text.as_bytes(), get_leds(monitor, args)).await;
+                                    tokio::time::sleep(Duration::from_millis(frame_ms)).await;
+                                } => {}
+                                Ok(_) = rx.changed() => { pet_interrupted = true; break; }
+                            }
                         }
                     } else if let Some(txt) = spec.strip_prefix("text:") {
-                        tokio::select! {
-                            _ = async {
-                                let _ = screen.write_data(txt.as_bytes(), get_leds(monitor, args)).await;
-                                tokio::time::sleep(Duration::from_millis(100)).await;
-                            } => {}
-                            Ok(_) = rx.changed() => { pet_interrupted = true; break; }
+                        if mode == "type" {
+                            let _ = screen.write_data_typed(txt.as_bytes(), get_leds(monitor, args), frame_ms).await;
+                        } else {
+                            tokio::select! {
+                                _ = async {
+                                    let _ = screen.write_data(txt.as_bytes(), get_leds(monitor, args)).await;
+                                    tokio::time::sleep(Duration::from_millis(frame_ms)).await;
+                                } => {}
+                                Ok(_) = rx.changed() => { pet_interrupted = true; break; }
+                            }
                         }
                     } else {
                         break;

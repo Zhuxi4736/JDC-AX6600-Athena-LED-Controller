@@ -43,12 +43,14 @@ pub struct ControlState {
     // 🌟 [v2.5.0] 系统告警队列 (net_agent 等后台任务写入，调度器边界消费)
     pub pending_alerts: Vec<Alert>,
 
-    // 🌟 [v2.6.0 虚拟宠物] 待播放的宠物请求: (解析后的显示规格, 秒数)
+    // 🌟 [v2.6.0 虚拟宠物] 待播放的宠物请求: (显示规格, 秒数, 显示模式, 帧间隔ms)
     //   规格格式:
     //     "pet_xxx.bin"        -> 播放动画文件 (/etc/athena_led/anim/)
     //     "module:cpu"         -> 循环显示某模块数据 (cpu/updl/mem/load/time)
     //     "text:Zzz"           -> 静态显示文字
-    pub pending_pet: Option<(String, u64)>,
+    //   显示模式 mode: "" | "static"(瞬切) | "type"(逐字冒出) | "flow"(滚动)
+    //   帧间隔 speed: 0 = 使用默认(动画66ms / 文字100ms)
+    pub pending_pet: Option<(String, u64, String, u64)>,
     // 空闲超时(秒): 超过该时间无新宠物请求 -> 自动回到 idle 态
     pub pet_idle_secs: Option<u64>,
     // 上次宠物请求的时刻 (用于空闲计时，调度器维护)
@@ -232,19 +234,27 @@ fn handle_command(
             }
         }
 
-        // 🌟 [v2.6.0 预览] showraw <spec> <secs>: 直接播放任意 spec
-        //   spec 格式同 build_pet_request: xxx.bin / module:cpu / text:hi
-        //   不经过 pet.json, 用于网页"预览测试"功能
+        // 🌟 [v2.6.1 预览修复] showraw <spec> <secs> [mode] [speed]: 直接播放完整 spec
+        //   spec: xxx.bin / module:cpu / text:hi / 或裸模块名 (time/cpu/updl/mem/load/clock)
+        //   不再二次过 build_pet_request (否则已带 module: 前缀的会被当普通文字显示)
+        //   mode: static(瞬切) | type(逐字冒出) | flow(滚动)   speed: 帧间隔毫秒
         "showraw" => {
             let spec = parts.next().unwrap_or("").trim();
             if spec.is_empty() {
-                return "ERR 用法: showraw <spec> <秒数>".to_string();
+                return "ERR 用法: showraw <spec> <秒数> [mode] [speed]".to_string();
             }
             let secs = parts.next().and_then(|s| s.parse::<u64>().ok()).unwrap_or(10);
             let secs = secs.clamp(1, 60);
-            let (pspec, psecs) = build_pet_request(spec);
+            let mode = parts.next().unwrap_or("").to_string();
+            let speed = parts.next().and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
+            // 裸模块名(无前缀)自动补 module: 前缀
+            let norm = if spec.contains(':') || spec.ends_with(".bin") {
+                spec.to_string()
+            } else {
+                format!("module:{}", spec)
+            };
             if let Ok(mut st) = state.lock() {
-                st.pending_pet = Some((pspec, psecs.min(secs)));
+                st.pending_pet = Some((norm, secs, mode, speed));
                 st.pet_last_active = Some(std::time::Instant::now());
             }
             let current = *tx.borrow();

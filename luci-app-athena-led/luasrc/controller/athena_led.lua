@@ -255,6 +255,18 @@ function act_pet_gpio()
         http.write('{"ok":true,"base":"' .. base .. '","msg":"已应用 gpio_base=' .. base .. ' 并重启"}')
         return
     end
+    if action == "led" then
+        -- 机身指示灯开关: 前端传 clock/medal/up/down (0=亮 1=关)
+        local map = {clock="disable_led_clock", medal="disable_led_medal", up="disable_led_up", down="disable_led_down"}
+        for k, opt in pairs(map) do
+            local v = http.formvalue(k) or "1"
+            sys.call(string.format("uci set athena_led.general.%s=%s; uci commit athena_led", opt, v))
+        end
+        sys.call("/etc/init.d/athena_led restart >/dev/null 2>&1")
+        http.prepare_content("application/json")
+        http.write('{"ok":true,"msg":"已保存指示灯设置并重启"}')
+        return
+    end
     -- test: 临时用该 base 启动约 5 秒 (timeout 自动退出), 测试完自动重启正常服务
     local test_arg = string.format('killall athena-led 2>/dev/null; sleep 1; timeout 6 %s --gpio-base %s --light-level 5 --profile "timeBlink#5" --control-port %s >/dev/null 2>&1 & sleep 7; /etc/init.d/athena_led restart >/dev/null 2>&1 &',
         bin, base, port)
