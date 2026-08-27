@@ -48,7 +48,17 @@ jobs:
       - name: Compile Rust
         working-directory: ./athena-led
         run: |
-          cargo zigbuild --release --target aarch64-unknown-linux-musl
+          set +e
+          cargo zigbuild --release --target aarch64-unknown-linux-musl 2>&1 | tee /tmp/build.log
+          RC=${PIPESTATUS[0]}
+          # 把错误摘要写入 step summary (可从 API 读取, 不依赖 logs zip)
+          echo "### Compile Rust output (exit $RC)" >> "$GITHUB_STEP_SUMMARY"
+          grep -E "error\[|error:|warning: unused" /tmp/build.log | head -50 >> "$GITHUB_STEP_SUMMARY"
+          # 同时以 annotation 形式输出, 让 jobs API annotations 含错误文本
+          grep -E "error\[|error:" /tmp/build.log | head -30 | while read -r line; do
+            echo "::error::$line"
+          done
+          exit $RC
 
       # 5. 打包二进制 (放入 athena-led/files/athena-led-bin, 供 OpenWrt 包直接安装)
       - name: Stage Binary into package files/
