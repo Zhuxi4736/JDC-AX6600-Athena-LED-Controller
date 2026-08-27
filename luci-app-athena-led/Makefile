@@ -11,7 +11,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-athena-led
-PKG_VERSION:=2.5.0
+PKG_VERSION:=2.5.1
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=unraveloop <https://github.com/unraveloop>
@@ -68,6 +68,14 @@ define Package/$(PKG_NAME)/install
 		$(INSTALL_DATA) $(PKG_BUILD_DIR)/zh_Hans.lmo $(1)/usr/lib/lua/luci/i18n/athena_led.zh-cn.lmo; \
 		$(INSTALL_DATA) $(PKG_BUILD_DIR)/zh_Hans.lmo $(1)/usr/lib/lua/luci/i18n/athena_led.zh_Hans.lmo; \
 	} || true
+
+	# 5. 🌟 [v2.6.0 QWRT 兼容] 老架构 Lua controller + 虚拟宠物模板页
+	#    不依赖 CBI / luci-compat —— 规避 QWRT 上 Lua 插件管理页崩溃。
+	#    同时保留上方 menu.d + JS 视图 (给新版 luci2 固件用)。
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
+	$(INSTALL_DATA) ./luasrc/controller/athena_led.lua $(1)/usr/lib/lua/luci/controller/
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/view/athena_led
+	$(INSTALL_DATA) ./luasrc/view/athena_led/pet.htm $(1)/usr/lib/lua/luci/view/athena_led/
 endef
 
 define Package/$(PKG_NAME)/postinst
