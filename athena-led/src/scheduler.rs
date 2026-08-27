@@ -13,6 +13,17 @@ use anyhow::Result;
 use chrono::{Local, NaiveTime};
 use std::time::{Duration, Instant};
 
+// 🌟 机身灯掩码计算 (状态机预览块与旧轮播块共用)
+// 根据全局灯标志 + 各灯禁用开关, 返回 4 位掩码 (bit0=时钟 bit1=奖章 bit2=上行 bit3=下行)
+pub fn get_leds_static(monitor: &mut SystemMonitor, args: &Args) -> u8 {
+    let mut raw_flag = monitor.get_global_led_flag();
+    if args.disable_led_clock { raw_flag &= !1; }
+    if args.disable_led_medal { raw_flag &= !2; }
+    if args.disable_led_up    { raw_flag &= !4; }
+    if args.disable_led_down  { raw_flag &= !8; }
+    raw_flag
+}
+
 // ==========================================
 // [智能调度引擎] 专属配置结构 (V2.0 动态参数版)
 // ==========================================
@@ -235,6 +246,61 @@ pub async fn process_loop(
         // 🌟 [v2.7.0 状态机] 若启用 states.json, 走状态机渲染 (优先级高于旧 profile 轮播)
         // ==========================================
         if states_mode {
+            // 🌟 [v2.7.0 修复] 状态机模式下也优先响应预览/插播 (否则被 continue 挡掉, 预览失效)
+            let show_req = control.lock().ok().and_then(|mut st| st.pending_show.take());
+            if let Some((text, secs)) = show_req {
+                println!("📢 [插播] 显示 {} 秒: {}", secs, text);
+                let _ = rx.borrow_and_update();
+                let show_start = Instant::now();
+                let mut show_interrupted = false;
+                while show_start.elapsed() < Duration::from_secs(secs) {
+                    tokio::select! {
+                        _ = async {
+                            let _ = screen.write_data(text.as_bytes(), crate::scheduler::get_leds_static(monitor, args)).await;
+                            tokio::time::sleep(Duration::from_millis(100)).await;
+                        } => {}
+                        Ok(_) = rx.changed() => { show_interrupted = true; break; }
+                    }
+                }
+                if show_interrupted && *rx.borrow() < 0 { /* 息屏 */ }
+            }
+            let pet_req = control.lock().ok().and_then(|mut st| st.pending_pet.take());
+            if let Some((spec, secs, mode, speed)) = pet_req {
+                println!("🐾 [预览] 显示 {} 秒: {} (mode={}, speed={})", secs, spec, mode, speed);
+                let _ = rx.borrow_and_update();
+                let pet_start = Instant::now();
+                let frame_ms = if speed > 0 { speed } else { 100 } as u64;
+                while pet_start.elapsed() < Duration::from_secs(secs) {
+                    if let Ok(mut st) = control.lock() { st.pet_last_active = Some(std::time::Instant::now()); }
+                    if spec.ends_with(".bin") {
+                        let _ = screen.play_animation(&spec, secs, crate::scheduler::get_leds_static(monitor, args)).await;
+                        break;
+                    } else if let Some(module) = spec.strip_prefix("module:") {
+                        let text = match module {
+                            "cpu" => monitor.get_cpu_usage_string(),
+                            "updl" => monitor.get_updl_string(),
+                            "mem" => monitor.get_mem_string(),
+                            "load" => monitor.get_load_string(),
+                            "timeBlink" | "time" => Local::now().format("%H:%M").to_string(),
+                            _ => module.to_string(),
+                        };
+                        if mode == "type" {
+                            let _ = screen.write_data_typed(text.as_bytes(), crate::scheduler::get_leds_static(monitor, args), frame_ms).await;
+                        } else {
+                            let _ = screen.write_data(text.as_bytes(), crate::scheduler::get_leds_static(monitor, args)).await;
+                            tokio::time::sleep(Duration::from_millis(frame_ms)).await;
+                        }
+                    } else {
+                        if mode == "type" {
+                            let _ = screen.write_data_typed(spec.as_bytes(), crate::scheduler::get_leds_static(monitor, args), frame_ms).await;
+                        } else {
+                            let _ = screen.write_data(spec.as_bytes(), crate::scheduler::get_leds_static(monitor, args)).await;
+                            tokio::time::sleep(Duration::from_millis(frame_ms)).await;
+                        }
+                    }
+                }
+            }
+
             let signals = {
                 control.lock().map(|st| st.signals.clone()).unwrap_or_default()
             };
@@ -348,12 +414,7 @@ pub async fn process_loop(
 
             // 💡 全局灯光掩码过滤器
             let get_leds = |monitor: &mut SystemMonitor, args: &Args| -> u8 {
-                let mut raw_flag = monitor.get_global_led_flag();
-                if args.disable_led_clock { raw_flag &= !1; } // 1: 时钟
-                if args.disable_led_medal { raw_flag &= !2; } // 2: 奖牌
-                if args.disable_led_up    { raw_flag &= !4; } // 4: 上箭头
-                if args.disable_led_down  { raw_flag &= !8; } // 8: 下箭头
-                raw_flag
+                crate::scheduler::get_leds_static(monitor, args)
             };
 
             // ==========================================
