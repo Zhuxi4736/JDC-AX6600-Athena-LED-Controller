@@ -192,7 +192,7 @@ fn handle_command(
             };
             let (spec, secs) = build_pet_request(&display);
             if let Ok(mut st) = state.lock() {
-                st.pending_pet = Some((spec, secs));
+                st.pending_pet = Some((spec, secs, String::new(), 0));
                 st.pet_last_active = Some(std::time::Instant::now());
             }
             // 打断当前模块让宠物尽快上屏
@@ -215,7 +215,7 @@ fn handle_command(
             if let Ok(mut st) = state.lock() {
                 st.pending_show = Some((banner, 2));
                 let (spec, secs) = build_pet_request(&display);
-                st.pending_pet = Some((spec, secs));
+                st.pending_pet = Some((spec, secs, String::new(), 0));
                 st.pet_last_active = Some(std::time::Instant::now());
             }
             let current = *tx.borrow();
