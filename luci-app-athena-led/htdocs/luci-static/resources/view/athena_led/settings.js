@@ -606,12 +606,11 @@ return view.extend({
 		o.depends({ 'mqtt_broker': '', '!reverse': true });
 
 		// ============================================================
-		// 🌟 [v2.6.0 板块 8.5] 虚拟宠物 (AI 状态 -> 表情映射)
-		//   映射写在 /etc/athena_led/pet.json，用户可网页直接改，零命令行。
+		// 🌟 [v2.6.0 板块 8.5] 虚拟宠物 (AI 状态 -> 表情映射) — 全图形表格
 		// ============================================================
 		s = m.section(form.NamedSection, 'general', 'settings', _('🐾 Virtual Pet (AI Mood)'));
 		s.addremove = false;
-		s.description = _('Map Hermes/AI agent states to LED expressions. State names are sent via HTTP: curl -X POST http://ROUTER:8080/pet/<state>');
+		s.description = _('Map AI agent states to LED expressions. Each row: a state name (sent via HTTP /pet/<state>) + what the screen shows. Save writes /etc/athena_led/pet.json. No command line needed.');
 
 		o = s.option(form.Flag, 'pet_relay_enable', _('Enable Pet HTTP Relay'));
 		o.default = '1';
@@ -622,36 +621,85 @@ return view.extend({
 		o.datatype = 'port';
 		o.default = '8080';
 
-		// 映射表 (JSON 直编，最灵活；进阶用户也能手写)
-		o = s.option(form.TextValue, '_pet_json', _('State → Expression Map (pet.json)'));
-		o.rows = 12;
-		o.value('', '');
-		o.description = _('JSON format. Value = .bin animation file, or module name (cpu/updl/mem/load/time), or free text. Example: {"thinking":"pet_thinking.bin","angry":"cpu","idle":"time"}');
-		// 页面打开时拉取当前 pet.json 填入
+		// 显示内容候选
+		var PET_ANIM = ['pet_thinking.bin','pet_run.bin','pet_wave.bin','pet_jump.bin','pet_failed.bin','pet_love.bin','pet_waiting.bin','pet_idle.bin'];
+		var PET_MODS = [['cpu',_('CPU load %')],['updl',_('Up/Down speed')],['mem',_('Memory %')],['load',_('System load')],['time',_('Clock')]];
+		var PET_DEF = [['thinking','pet_thinking.bin'],['run','pet_run.bin'],['wave','pet_wave.bin'],['jump','pet_jump.bin'],['failed','pet_failed.bin'],['love','pet_love.bin'],['waiting','pet_waiting.bin'],['idle','time']];
+		var petRows = [];
+		var petTbl = null;
+		var petAddRow = null;
+
+		o = s.option(form.DummyValue, '_pet_table', _('State → Expression Map'));
+		o.render = function() {
+			petRows.length = 0;
+			var tbl = E('table', { 'style':'width:100%;border-collapse:collapse' });
+			tbl.appendChild(E('tr', {}, [
+				E('th',{style:'text-align:left;width:30%'}, _('State name')),
+				E('th',{style:'text-align:left;width:60%'}, _('Screen shows')),
+				E('th',{style:'text-align:left;width:10%'}, '')
+			]));
+			function addRow(sv, dv) {
+				var si = E('input', { 'class':'cbi-input-text', 'style':'width:100%', 'placeholder':_('e.g. thinking') });
+				if (sv) si.value = sv;
+				var sel = E('select', { 'class':'cbi-input-select', 'style':'width:100%' });
+				PET_ANIM.forEach(function(b){ sel.appendChild(E('option',{value:b}, b)); });
+				PET_MODS.forEach(function(m){ sel.appendChild(E('option',{value:m[0]}, m[1])); });
+				sel.appendChild(E('option',{value:'__text'}, _('Custom text')));
+				var ti = E('input', { 'class':'cbi-input-text', 'style':'width:100%', 'placeholder':_('text to show') });
+				var isText = dv && !PET_ANIM.includes(dv) && !PET_MODS.map(function(x){return x[0]}).includes(dv);
+				if (dv) { if (isText) { sel.value='__text'; ti.value=dv; } else { sel.value=dv; } }
+				ti.style.display = isText ? 'inline-block' : 'none';
+				sel.addEventListener('change', function(){ ti.style.display = (sel.value==='__text')?'inline-block':'none'; if(sel.value!=='__text') ti.value=''; });
+				var del = E('button', { 'class':'cbi-button cbi-button-remove' }, _('Remove'));
+				var row = E('tr', {}, [ E('td',{style:'padding:2px'}, si), E('td',{style:'padding:2px'}, E('div',{},[sel,ti])), E('td',{style:'padding:2px'}, del) ]);
+				del.addEventListener('click', function(ev){ ev.preventDefault(); tbl.removeChild(row); });
+				tbl.appendChild(row);
+				petRows.push({state:si, sel:sel, text:ti});
+			}
+			petAddRow = addRow;
+			petTbl = tbl;
+			(this._initial || PET_DEF).forEach(function(d){ addRow(d[0], d[1]); });
+			var addBtn = E('button', { 'class':'cbi-button cbi-button-add', 'style':'margin-top:6px' }, _('+ Add state'));
+			addBtn.addEventListener('click', function(ev){ ev.preventDefault(); addRow('',''); });
+			return E('div', {}, [ tbl, addBtn ]);
+		};
+		// 打开页面时拉取已存映射预填
 		fs.read('/etc/athena_led/pet.json').then(function(t) {
-			o.value('', t || '{}');
-			o.updateValue('', t || '{}');
-		}).catch(function() { o.updateValue('', '{}'); });
+			try {
+				var obj = JSON.parse(t || '{}');
+				var arr = []; for (var k in obj) { if (obj.hasOwnProperty(k)) arr.push([k, obj[k]]); }
+				if (arr.length && petTbl && petAddRow) {
+					petRows.length = 0;
+					petTbl.innerHTML = '';
+					petTbl.appendChild(E('tr', {}, [
+						E('th',{style:'text-align:left;width:30%'}, _('State name')),
+						E('th',{style:'text-align:left;width:60%'}, _('Screen shows')),
+						E('th',{style:'text-align:left;width:10%'}, '')
+					]));
+					arr.forEach(function(d){ petAddRow(d[0], d[1]); });
+				} else if (arr.length) { o._initial = arr; }
+			} catch (e) {}
+		}).catch(function(){});
 
 		o = s.option(form.Button, '_pet_save', _('Save Pet Map & Reload'));
 		o.inputstyle = 'apply';
 		o.inputtitle = _('Save');
 		o.onclick = function() {
-			var txt = o.map().getElementById('_pet_json') ? null : null;
-			// 取 textarea 当前值
-			var node = document.querySelector('textarea[id*="_pet_json"]');
-			var json = node ? node.value : '';
-			if (!json) { ui.addNotification(null, E('p', _('Empty map, nothing to save.')), 'error'); return Promise.resolve(); }
-			try { JSON.parse(json); } catch (e) {
-				ui.addNotification(null, E('p', _('Invalid JSON: ') + e.message), 'error');
-				return Promise.resolve();
-			}
+			var map = {};
+			petRows.forEach(function(r) {
+				var k = (r.state.value || '').trim();
+				var v = r.sel.value;
+				if (v === '__text') v = (r.text.value || '').trim();
+				if (k && v) map[k] = v;
+			});
+			if (!Object.keys(map).length) { ui.addNotification(null, E('p', _('No valid rows to save.')), 'error'); return Promise.resolve(); }
+			var json = JSON.stringify(map);
 			return fs.write('/etc/athena_led/pet.json', json).then(function() {
 				return fs.exec('/etc/init.d/athena_led', ['restart']);
 			}).then(function() {
 				ui.addNotification(null, E('p', _('Pet map saved & service reloaded.')), 'info');
 			}).catch(function(e) {
-				ui.addNotification(null, E('p', _('Save failed: ') + e.message), 'error');
+				ui.addNotification(null, E('p', _('Save failed: ') + (e && e.message ? e.message : e)), 'error');
 			});
 		};
 
