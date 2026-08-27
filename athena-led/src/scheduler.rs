@@ -278,7 +278,7 @@ pub async fn process_loop(
                     } else if let Some(module) = spec.strip_prefix("module:") {
                         let text = match module {
                             "cpu" => monitor.get_cpu_usage_string(),
-                            "updl" => monitor.get_updl_string(),
+                            "updl" => format!("{}/{}", monitor.get_tx_speed_mbps(), monitor.get_rx_speed_mbps()),
                             "mem" => monitor.get_mem_string(),
                             "load" => monitor.get_load_string(),
                             "timeBlink" | "time" => Local::now().format("%H:%M").to_string(),
@@ -358,7 +358,7 @@ pub async fn process_loop(
                     } else if let Some(module) = sub.content.strip_prefix("module:") {
                         let text = match module {
                             "cpu" => monitor.get_cpu_usage_string(),
-                            "updl" => monitor.get_updl_string(),
+                            "updl" => format!("{}/{}", monitor.get_tx_speed_mbps(), monitor.get_rx_speed_mbps()),
                             "mem" => monitor.get_mem_string(),
                             "load" => monitor.get_load_string(),
                             "timeBlink" | "time" => Local::now().format("%H:%M").to_string(),
@@ -467,7 +467,7 @@ pub async fn process_loop(
                         // 模块数据类 (cpu/updl/mem/load/timeBlink)
                         let text = match module {
                             "cpu" => monitor.get_cpu_usage_string(),
-                            "updl" => monitor.get_updl_string(),
+                            "updl" => format!("{}/{}", monitor.get_tx_speed_mbps(), monitor.get_rx_speed_mbps()),
                             "mem" => monitor.get_mem_string(),
                             "load" => monitor.get_load_string(),
                             "timeBlink" | "time" => Local::now().format("%H:%M").to_string(),

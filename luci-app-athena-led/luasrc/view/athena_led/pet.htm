@@ -96,6 +96,12 @@ local url_gpio    = luci.dispatcher.build_url("admin","services","athena_led","p
 </div>
 
 <div class="cbi-section">
+  <h3>HTTP 信号测试（验证触发配置）</h3>
+  <p>这里列出你在各状态里配置的「HTTP 信号」名。点「测试触发」= 模拟外部程序发了这个信号，可立刻看到对应状态是否亮起（无需真门铃/真 HA）。外部对接方法见 README。</p>
+  <div id="signalBox" style="margin-top:6px"></div>
+</div>
+
+<div class="cbi-section">
   <h3>上传自定义表情（GIF / PNG → 点阵 .bin）</h3>
   <p>选一张 GIF 或图片，浏览器自动缩放裁切到 27×5 并二值化，预览后上传到路由器 <code>/etc/athena_led/anim/</code>。上传后可在「子状态」内容下拉里选它。无需命令行。</p>
   <input type="file" id="gifInput" accept="image/gif,image/png,image/jpeg" />
@@ -179,6 +185,8 @@ var URL_EN='<%=url_en%>';
 var URL_STAT='<%=url_stat%>';
 var URL_UPLOAD='<%=url_upload%>';
 var URL_LIST='<%=url_list%>';
+var URL_DELETE='<%=luci.dispatcher.build_url("admin","services","athena_led","pet_delete")%>';
+var URL_SIGNAL='<%=luci.dispatcher.build_url("admin","services","athena_led","signal")%>';
 var URL_PREVIEW='<%=url_preview%>';
 var URL_STOP='<%=url_stop%>';
 var URL_GPIO='<%=url_gpio%>';
@@ -252,6 +260,31 @@ function renderList(){
     c5.appendChild(bEdit); c5.appendChild(bDel);
     tr.appendChild(c1);tr.appendChild(c2);tr.appendChild(c3);tr.appendChild(c4);tr.appendChild(c5);
     tb.appendChild(tr);
+  });
+}
+
+// ---------- HTTP 信号测试区 ----------
+function renderSignals(){
+  var box=document.getElementById('signalBox'); if(!box) return;
+  // 收集所有状态里 type:http 规则的信号名 + 所属状态名
+  var sigs=[];
+  STATES.forEach(function(st){
+    if(st.trigger && st.trigger.rules){
+      st.trigger.rules.forEach(function(r){
+        if(r.type==='http' && r.signal){ sigs.push({name:r.signal, state:st.name||st.id}); }
+      });
+    }
+  });
+  if(!sigs.length){ box.innerHTML='<span style="color:#888">（暂无 HTTP 信号规则，在状态触发条件里选「HTTP 信号」并填信号名后会出现在这里）</span>'; return; }
+  box.innerHTML='';
+  sigs.forEach(function(s){
+    var row=document.createElement('div'); row.style.margin='4px 0';
+    var lbl=document.createElement('span'); lbl.style.marginRight='8px'; lbl.textContent=s.name+'  ← 来自「'+(s.state||'?')+'」';
+    var btn=document.createElement('button'); btn.className='cbi-button cbi-button-apply'; btn.textContent='测试触发';
+    btn.addEventListener('click', function(){
+      post(URL_SIGNAL, {name:s.name}, function(j){ if(j&&j.ok){ btn.textContent='已触发✓'; setTimeout(function(){ btn.textContent='测试触发'; }, 1500); } else { alert('触发失败：'+(j&&j.msg?j.msg:'未知')); } });
+    });
+    row.appendChild(lbl); row.appendChild(btn); box.appendChild(row);
   });
 }
 
@@ -430,8 +463,8 @@ document.getElementById('modalOk').addEventListener('click', function(){
 fetch(URL_LOAD).then(function(r){return r.json();}).then(function(j){
   try{ var o=JSON.parse(j.data||'{}'); if(o && o.states) STATES=o.states; }catch(e){}
   if(!STATES.length){ STATES=[ {id:'idle',name:'默认·悠闲',is_default:true,priority:0,persistent:true,hold_secs:10,trigger:null,substates:[{content:'module:time',mode:'static',speed:100,duration:5,leds:{clock:0,medal:0,up:0,down:0}},{content:'module:updl',mode:'flow',speed:80,duration:5,leds:{clock:0,medal:0,up:0,down:0}}]} ]; }
-  renderList();
-}).catch(function(){ renderList(); });
+  renderList(); renderSignals();
+}).catch(function(){ renderList(); renderSignals(); });
 
 document.getElementById('addStateBtn').addEventListener('click', function(ev){ ev.preventDefault(); openModal(-1); });
 document.getElementById('saveAllBtn').addEventListener('click', function(ev){
@@ -504,7 +537,7 @@ function renderPreview(){
 function buildBin(){ var fr=gifFrames; if(fr.length>MAXFR){ var step=fr.length/MAXFR, out=[]; for(var i=0;i<MAXFR;i++) out.push(fr[Math.floor(i*step)]); fr=out; } var buf=new Uint8Array(fr.length*COLS); for(var i=0;i<fr.length;i++) buf.set(fr[i], i*COLS); return buf; }
 gifInput.addEventListener('change', function(){ var f=gifInput.files&&gifInput.files[0]; if(!f){ return; } upMsg.textContent='解析中…'; loadGifFrames(f, function(frames){ gifFrames=frames; if(!frames.length){ upMsg.textContent='无法解析该图片'; return; } renderPreview(); upMsg.textContent='已解析 '+frames.length+' 帧'; if(!binName.value) binName.value=(f.name.replace(/\.[^.]+$/, '')+'.bin').toLowerCase(); }); });
 upBtn.addEventListener('click', function(){ if(!gifFrames||!gifFrames.length){ upMsg.textContent='请先选择图片'; return; } var name=(binName.value||'').trim(); if(!name.endsWith('.bin')) name+='.bin'; if(!/^[\w_.\-]+\.bin$/.test(name)){ upMsg.textContent='文件名须为 xxx.bin 且不含特殊字符'; return; } var buf=buildBin(); var bin=''; var bytes=Array.from(buf); var chunk; for(var i=0;i<bytes.length;i+=0x8000){ chunk=bytes.slice(i,i+0x8000); bin+=String.fromCharCode.apply(null, chunk); } var b64=btoa(bin); upMsg.textContent='上传中…'; var fd='name='+encodeURIComponent(name)+'&data='+encodeURIComponent(b64); fetch(URL_UPLOAD, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: fd }).then(function(r){return r.json();}).then(function(j){ if(j&&j.ok){ upMsg.textContent='已上传 '+name+' ('+(buf.length/COLS)+' 帧)'; refreshAnimList(); } else { upMsg.textContent='上传失败：'+(j&&j.msg?j.msg:'未知'); } }).catch(function(e){ upMsg.textContent='上传出错：'+e; }); });
-function refreshAnimList(){ fetch(URL_LIST).then(function(r){return r.json();}).then(function(j){ if(!j||!j.files) return; animList.innerHTML='<b>已上传动画：</b> '+j.files.join('、'); // 同步到所有子状态行的动画下拉
+function refreshAnimList(){ fetch(URL_LIST).then(function(r){return r.json();}).then(function(j){ if(!j||!j.files){ animList.innerHTML='<b>已上传动画：</b> （暂无）'; return; } animList.innerHTML=''; var box=document.createElement('div'); var title=document.createElement('b'); title.textContent='已上传动画：'; box.appendChild(title); j.files.forEach(function(fn){ var row=document.createElement('span'); row.style.marginRight='14px'; var nm=document.createElement('span'); nm.textContent=fn; var del=document.createElement('button'); del.className='cbi-button cbi-button-remove'; del.textContent='删'; del.style.marginLeft='4px'; del.addEventListener('click', function(){ if(confirm('删除 '+fn+'？')){ post(URL_DELETE, {name:fn}, function(dj){ if(dj&&dj.ok){ refreshAnimList(); } else { alert('删除失败：'+(dj&&dj.msg?dj.msg:'未知')); } }); } }); row.appendChild(nm); row.appendChild(del); box.appendChild(row); }); animList.appendChild(box);
   document.querySelectorAll('.animSel').forEach(function(s){ j.files.forEach(function(fn){ if(!s.querySelector('option[value="'+fn+'"]')) s.appendChild(opt(fn, fn)); }); });
 }).catch(function(){}); }
 refreshAnimList();

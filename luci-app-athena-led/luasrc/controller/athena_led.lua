@@ -27,6 +27,9 @@ function index()
     entry({"admin", "services", "athena_led", "pet_enable"}, call("act_pet_enable")).leaf = true
     entry({"admin", "services", "athena_led", "pet_list"}, call("act_pet_list")).leaf = true
     entry({"admin", "services", "athena_led", "pet_upload"}, call("act_pet_upload")).leaf = true
+    entry({"admin", "services", "athena_led", "pet_delete"}, call("act_pet_delete")).leaf = true
+    -- 🌟 [v2.7.0] 手动触发 HTTP 信号 (GUI 测试用)
+    entry({"admin", "services", "athena_led", "signal"}, call("act_signal")).leaf = true
     -- 🌟 [v2.7.0] 状态机配置读写
     entry({"admin", "services", "athena_led", "states_load"}, call("act_states_load")).leaf = true
     entry({"admin", "services", "athena_led", "states_save"}, call("act_states_save")).leaf = true
@@ -215,6 +218,43 @@ function act_pet_upload()
     f:close()
     http.prepare_content("application/json")
     http.write('{"ok":true,"path":"' .. path .. '","bytes":' .. #data .. '}')
+end
+
+-- 🌟 [v2.7.0] 手动触发 HTTP 信号 (供 GUI 测试, 等同于外部 GET /signal/<name>)
+function act_signal()
+    local name = http.formvalue("name") or ""
+    if name == "" then
+        http.status(400)
+        http.prepare_content("application/json")
+        http.write('{"ok":false,"msg":"信号名为空"}')
+        return
+    end
+    -- 经控制端口投递信号 (复用 HTTP 信号通道)
+    local port = uci:get("athena_led", "general", "control_port") or "8377"
+    local out = sys.exec(string.format("curl -s --max-time 2 'http://127.0.0.1:%s/signal/%s' 2>/dev/null", port, name))
+    http.prepare_content("application/json")
+    http.write('{"ok":true,"resp":"'..(out or "")..'"}')
+end
+
+-- 🌟 [v2.7.0] 删除已上传动画 (.bin)
+function act_pet_delete()
+    local name = http.formvalue("name") or ""
+    if not name:match("^[%w_%._%-]+%.bin$") then
+        http.status(400)
+        http.prepare_content("application/json")
+        http.write('{"ok":false,"msg":"文件名非法"}')
+        return
+    end
+    local path = "/etc/athena_led/anim/" .. name
+    local ok = os.remove(path)
+    if ok then
+        http.prepare_content("application/json")
+        http.write('{"ok":true}')
+    else
+        http.status(500)
+        http.prepare_content("application/json")
+        http.write('{"ok":false,"msg":"删除失败（可能不存在或无权限）"}')
+    end
 end
 
 -- 预览/测试: 临时播放某表情 (不影响 pet.json, 播放完超时自动回正常轮播)

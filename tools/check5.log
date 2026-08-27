@@ -1,0 +1,42 @@
+    Checking athena-led v2.7.0 (C:\Users\47362\JDC-AX6600-Athena-LED-Controller\athena-led)
+warning: unused variable: `last_tx`
+   --> src\monitor.rs:856:19
+    |
+856 |     let (last_rx, last_tx, last_time) = self.net_speed_cache
+    |                   ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_last_tx`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable `sm_sub_expire` is assigned to, but never used
+   --> src\scheduler.rs:188:9
+    |
+188 |     let mut sm_sub_expire: Option<Instant> = None;
+    |         ^^^^^^^^^^^^^^^^^
+    |
+    = note: consider using `_sm_sub_expire` instead
+
+warning: value assigned to `sm_sub_expire` is never read
+   --> src\scheduler.rs:313:21
+    |
+313 |                     sm_sub_expire = None;
+    |                     ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `args`
+   --> src\states.rs:132:46
+    |
+132 |     fn matches(&self, m: &mut SystemMonitor, args: &Args, signals: &HashMap<String, Instant>) -> bool {
+    |                                              ^^^^ help: if this is intentional, prefix it with an underscore: `_args`
+
+warning: function `detect_gpio_base` is never used
+  --> src\led_screen_sim.rs:11:8
+   |
+11 | pub fn detect_gpio_base() -> u64 {
+   |        ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `athena-led` (bin "athena-led") generated 5 warnings (run `cargo fix --bin "athena-led" -p athena-led` to apply 2 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.17s

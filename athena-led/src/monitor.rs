@@ -359,19 +359,44 @@ impl SystemMonitor {
     // ==========================================
     fn read_net_bytes_for(&self, target_iface: &str) -> (u64, u64) {
         if let Ok(content) = std::fs::read_to_string("/proc/net/dev") {
+            // 第一遍: 精确匹配 target_iface
             for line in content.lines() {
                 if let Some((name, data)) = line.split_once(':') {
-                    // 🌟 [修复] 网卡名必须精确匹配！
-                    // 以前用 contains 子串匹配：选 "lan1" 会命中 "wlan1"、
-                    // 选 "eth0" 会命中 "veth0xxx"，导致网速读到别的网卡上
-                    if name.trim() != target_iface {
-                        continue;
-                    }
+                    if name.trim() != target_iface { continue; }
                     let parts: Vec<&str> = data.split_whitespace().collect();
                     if parts.len() >= 9 {
                         let rx = parts[0].parse::<u64>().unwrap_or(0);
                         let tx = parts[8].parse::<u64>().unwrap_or(0);
                         return (rx, tx);
+                    }
+                }
+            }
+            // 🌟 [v2.7.0 修复] 默认 br-lan 在 WAN 场景下几乎无流量 -> 回退到真实出口网卡
+            // 依次试 wan / eth0，再退回第一个有非零流量的接口 (跳过 lo/br-lan 等纯桥接)
+            let fallbacks = ["wan", "eth0", "eth1"];
+            for fb in fallbacks.iter() {
+                for line in content.lines() {
+                    if let Some((name, data)) = line.split_once(':') {
+                        if name.trim() != *fb { continue; }
+                        let parts: Vec<&str> = data.split_whitespace().collect();
+                        if parts.len() >= 9 {
+                            let rx = parts[0].parse::<u64>().unwrap_or(0);
+                            let tx = parts[8].parse::<u64>().unwrap_or(0);
+                            if rx + tx > 0 { return (rx, tx); }
+                        }
+                    }
+                }
+            }
+            // 最后兜底: 任意第一个 rx+tx>0 的接口 (排除 lo)
+            for line in content.lines() {
+                if let Some((name, data)) = line.split_once(':') {
+                    let n = name.trim();
+                    if n == "lo" { continue; }
+                    let parts: Vec<&str> = data.split_whitespace().collect();
+                    if parts.len() >= 9 {
+                        let rx = parts[0].parse::<u64>().unwrap_or(0);
+                        let tx = parts[8].parse::<u64>().unwrap_or(0);
+                        if rx + tx > 0 { return (rx, tx); }
                     }
                 }
             }
