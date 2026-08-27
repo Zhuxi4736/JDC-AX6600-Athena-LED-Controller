@@ -61,9 +61,13 @@ jobs:
           chmod +x files/athena-led-bin
           echo "✅ Staged binary -> files/athena-led-bin ($(ls -la files/athena-led-bin | awk '{print $5}') bytes)"
 
-      # 6. 传递给 OpenWrt 任务 (二进制已 staged 进 athena-led/files, 随仓库 checkout 一起进入 SDK)
-      - name: Note staged binary
-        run: echo "✅ Binary staged in athena-led/files/athena-led-bin; will be injected via checkout"
+      # 6. 上传编译产物给下一阶段 (你自己的源码编译, 非上游预编)
+      - name: Upload Rust Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-binary
+          path: athena-led/files/athena-led-bin
+          retention-days: 1
 
   # 🔵 第二阶段：编译 OpenWrt 安装包
   build_openwrt:
@@ -81,6 +85,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download Rust Binary Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-binary
+          path: athena-led/files/
 
       - name: Prepare SDK
         run: |
