@@ -55,6 +55,8 @@ pub struct ControlState {
     pub pet_idle_secs: Option<u64>,
     // 上次宠物请求的时刻 (用于空闲计时，调度器维护)
     pub pet_last_active: Option<std::time::Instant>,
+    // 🌟 [v2.7.0] 外部 HTTP 信号集合: 信号名 -> 最近触发时刻 (供状态机 http 触发用)
+    pub signals: std::collections::HashMap<String, std::time::Instant>,
 }
 
 pub type SharedControl = Arc<Mutex<ControlState>>;
@@ -113,6 +115,18 @@ fn handle_command(
 
     match cmd.as_str() {
         "ping" => "PONG".to_string(),
+
+        // 🌟 [v2.7.0] 外部信号推送: signal <name>  -> 记录到 signals 集合 (状态机 http 触发用)
+        "signal" => {
+            let name = parts.next().unwrap_or("").trim();
+            if name.is_empty() {
+                return "ERR 用法: signal <信号名>".to_string();
+            }
+            if let Ok(mut st) = state.lock() {
+                st.signals.insert(name.to_string(), std::time::Instant::now());
+            }
+            format!("OK signal:{}", name)
+        }
 
         "next" => {
             let current = *tx.borrow();
@@ -303,15 +317,39 @@ pub fn spawn_control_server(
                 let (read_half, mut write_half) = stream.into_split();
                 let mut lines = BufReader::new(read_half).lines();
                 // 5 秒空闲超时，防止连接悬挂
+                let mut is_http = false;
                 while let Ok(Ok(Some(line))) = tokio::time::timeout(
                     std::time::Duration::from_secs(5),
                     lines.next_line(),
                 ).await {
+                    // 🌟 [v2.7.0] 识别 HTTP 信号请求: GET /signal/<name> HTTP/1.1
+                    if line.starts_with("GET /signal/") && line.contains("HTTP/") {
+                        is_http = true;
+                        let name = line.trim_start_matches("GET /signal/")
+                            .split_whitespace().next().unwrap_or("").trim_end_matches('/');
+                        if !name.is_empty() {
+                            if let Ok(mut st) = state.lock() {
+                                st.signals.insert(name.to_string(), std::time::Instant::now());
+                            }
+                        }
+                        let body = format!("OK signal:{}", name);
+                        let resp = format!(
+                            "HTTP/1.1 200 OK
+\nContent-Type: text/plain
+\nContent-Length: {}
+\n
+\n{}",
+                            body.len(), body
+                        );
+                        let _ = write_half.write_all(resp.as_bytes()).await;
+                        break;
+                    }
                     let resp = handle_command(&line, &tx, &state);
                     if write_half.write_all(format!("{}\n", resp).as_bytes()).await.is_err() {
                         break;
                     }
                 }
+                let _ = is_http;
             });
         }
     });

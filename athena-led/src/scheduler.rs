@@ -164,6 +164,19 @@ pub async fn process_loop(
     // 🌟 夜间被按键唤醒后的“临时免死金牌”时间
     let mut manual_wake_expire: Option<std::time::Instant> = None;
 
+    // 🌟 [v2.7.0] 加载状态机配置 (states.json); 空则走旧 profile 轮播兜底
+    let states_file = crate::states::load_states("/etc/athena_led/states.json");
+    let states_mode = !states_file.states.is_empty();
+    if states_mode {
+        println!("🗂️ [状态机] 已加载 {} 个状态", states_file.states.len());
+    }
+
+    // 🌟 [v2.7.0] 状态机跨轮跟踪: 当前激活态 id + 子状态索引 + 子状态到期时刻 + 瞬态到期
+    let mut sm_active_id: Option<String> = None;
+    let mut sm_sub_idx: usize = 0;
+    let mut sm_sub_expire: Option<Instant> = None;
+    let mut sm_transient_expire: Option<Instant> = None;
+
     // 🌟 [定时亮度] 当前已应用的亮度档 (main 启动时用的是 light_level)
     let mut applied_light = args.light_level;
 
@@ -215,6 +228,99 @@ pub async fn process_loop(
                     screen.power(true, applied_light).unwrap_or_default();
                     continue;
                 }
+            }
+        }
+
+        // ==========================================
+        // 🌟 [v2.7.0 状态机] 若启用 states.json, 走状态机渲染 (优先级高于旧 profile 轮播)
+        // ==========================================
+        if states_mode {
+            let signals = {
+                control.lock().map(|st| st.signals.clone()).unwrap_or_default()
+            };
+            let active = crate::states::select_active(&states_file.states, monitor, args, &signals);
+            if let Some(act) = active {
+                // 激活态切换 -> 重置子状态索引
+                if sm_active_id.as_deref() != Some(act.state.id.as_str()) {
+                    sm_active_id = Some(act.state.id.clone());
+                    sm_sub_idx = 0;
+                    sm_sub_expire = None;
+                    if !act.state.persistent {
+                        sm_transient_expire = Some(Instant::now() + Duration::from_secs(act.state.hold_secs));
+                    } else {
+                        sm_transient_expire = None;
+                    }
+                    println!("🗂️ [状态机] 激活态: {} (priority={})", act.state.name, act.effective_priority);
+                }
+
+                // 瞬态超时 -> 清除激活, 下一轮回默认态
+                if let Some(exp) = sm_transient_expire {
+                    if Instant::now() > exp {
+                        sm_active_id = None;
+                        sm_transient_expire = None;
+                        continue;
+                    }
+                }
+
+                // 取当前子状态
+                if act.state.substates.is_empty() {
+                    sm_active_id = None;
+                    continue;
+                }
+                let sub = &act.state.substates[sm_sub_idx % act.state.substates.len()];
+                let sub_start = Instant::now();
+                let frame_ms = if sub.speed > 0 { sub.speed } else { 100 } as u64;
+
+                while sub_start.elapsed() < Duration::from_secs(sub.duration.max(1)) {
+                    // 亮度检查
+                    let desired_light = effective_light(args, control);
+                    if desired_light != applied_light {
+                        let _ = screen.power(true, desired_light);
+                        applied_light = desired_light;
+                    }
+                    let led_flag = {
+                        let mut f = 0u8;
+                        if sub.leds.clock == 1 { f |= 1; }
+                        if sub.leds.medal == 1 { f |= 2; }
+                        if sub.leds.up == 1 { f |= 4; }
+                        if sub.leds.down == 1 { f |= 8; }
+                        f
+                    };
+                    if sub.content.ends_with(".bin") {
+                        let _ = screen.play_animation(&sub.content, sub.duration, led_flag).await;
+                        break;
+                    } else if let Some(module) = sub.content.strip_prefix("module:") {
+                        let text = match module {
+                            "cpu" => monitor.get_cpu_usage_string(),
+                            "updl" => monitor.get_updl_string(),
+                            "mem" => monitor.get_mem_string(),
+                            "load" => monitor.get_load_string(),
+                            "timeBlink" | "time" => Local::now().format("%H:%M").to_string(),
+                            _ => module.to_string(),
+                        };
+                        if sub.mode == "type" {
+                            let _ = screen.write_data_typed(text.as_bytes(), led_flag, frame_ms).await;
+                        } else {
+                            let _ = screen.write_data(text.as_bytes(), led_flag).await;
+                            tokio::time::sleep(Duration::from_millis(frame_ms)).await;
+                        }
+                    } else if let Some(txt) = sub.content.strip_prefix("text:") {
+                        if sub.mode == "type" {
+                            let _ = screen.write_data_typed(txt.as_bytes(), led_flag, frame_ms).await;
+                        } else {
+                            let _ = screen.write_data(txt.as_bytes(), led_flag).await;
+                            tokio::time::sleep(Duration::from_millis(frame_ms)).await;
+                        }
+                    } else {
+                        let _ = screen.write_data(sub.content.as_bytes(), led_flag).await;
+                        tokio::time::sleep(Duration::from_millis(frame_ms)).await;
+                    }
+                }
+                // 子状态前进
+                sm_sub_idx = (sm_sub_idx + 1) % act.state.substates.len();
+                continue;
+            } else {
+                sm_active_id = None;
             }
         }
 
