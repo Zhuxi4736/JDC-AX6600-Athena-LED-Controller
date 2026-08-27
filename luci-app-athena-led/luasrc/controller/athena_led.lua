@@ -29,7 +29,6 @@ function index()
     -- 预览/测试: 临时播放某表情或测试屏 (不影响 pet.json, 超时自动回正常轮播)
     entry({"admin", "services", "athena_led", "pet_preview"}, call("act_pet_preview")).leaf = true
     entry({"admin", "services", "athena_led", "stop"}, call("act_stop")).leaf = true
-    entry({"admin", "services", "athena_led", "gpio_test"}, call("act_gpio_test")).leaf = true
     -- 统一的服务/GPIO 控制入口 (apply=改配置并重启, test=临时测试)
     entry({"admin", "services", "athena_led", "pet_gpio"}, call("act_pet_gpio")).leaf = true
 end
@@ -55,7 +54,7 @@ function act_status()
         end
     end
     if not e.running then
-        local pid = sys.exec("pgrep -x athena_led | head -n 1")
+        local pid = sys.exec("pgrep -x athena-led | head -n 1")
         if pid and pid ~= "" then
             e.running = true
             e.pid = string.gsub(pid, "\n", "")
@@ -218,6 +217,16 @@ function act_pet_preview()
     http.write('{"ok":true,"spec":"' .. disp .. '","secs":' .. secs .. '}')
 end
 
+-- 启用并启动核心服务 (写 enabled=1 并 restart)
+function act_pet_enable()
+    uci:set("athena_led", "general", "enabled", "1")
+    uci:commit("athena_led")
+    sys.call("/etc/init.d/athena_led enable >/dev/null 2>&1")
+    sys.call("/etc/init.d/athena_led restart >/dev/null 2>&1")
+    http.prepare_content("application/json")
+    http.write('{"ok":true}')
+end
+
 -- 停止核心服务 (写 enabled=0 并 stop)
 function act_stop()
     uci:set("athena_led", "general", "enabled", "0")
@@ -235,7 +244,7 @@ function act_pet_gpio()
     local action = http.formvalue("action") or "test"
     local base = http.formvalue("base") or "auto"
     local port = uci:get("athena_led", "general", "control_port") or "8377"
-    local bin = "/usr/bin/athena_led"
+    local bin = "/usr/bin/athena-led"
     if not sys.exec("test -x " .. bin .. " && echo 1 || echo 0"):match("1") then
         http.prepare_content("application/json")
         http.write('{"ok":false,"msg":"核心程序不存在"}')
