@@ -245,11 +245,8 @@ function act_pet_gpio()
     local base = http.formvalue("base") or "auto"
     local port = uci:get("athena_led", "general", "control_port") or "8377"
     local bin = "/usr/bin/athena-led"
-    if not sys.exec("test -x " .. bin .. " && echo 1 || echo 0"):match("1") then
-        http.prepare_content("application/json")
-        http.write('{"ok":false,"msg":"核心程序不存在"}')
-        return
-    end
+    -- 注: 不再用 test -x 拦截 (busybox 下返回值判断不稳, 易误报"核心程序不存在")
+    -- 二进制缺失时后续命令自然失败, 由日志体现
     if action == "apply" then
         -- 用 shell uci set (无引号) 写入, 绕开 Lua uci 绑定对数字值的引号问题
         sys.call(string.format("uci set athena_led.general.gpio_base=%s; uci commit athena_led", base))
