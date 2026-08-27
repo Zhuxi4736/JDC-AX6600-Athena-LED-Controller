@@ -10,6 +10,7 @@ local http = require "luci.http"
 local uci  = require "luci.model.uci".cursor()
 
 local PET_JSON = "/etc/athena_led/pet.json"
+local STATES_JSON = "/etc/athena_led/states.json"
 local CFG      = "/etc/config/athena_led"
 
 function index()
@@ -26,6 +27,9 @@ function index()
     entry({"admin", "services", "athena_led", "pet_enable"}, call("act_pet_enable")).leaf = true
     entry({"admin", "services", "athena_led", "pet_list"}, call("act_pet_list")).leaf = true
     entry({"admin", "services", "athena_led", "pet_upload"}, call("act_pet_upload")).leaf = true
+    -- 🌟 [v2.7.0] 状态机配置读写
+    entry({"admin", "services", "athena_led", "states_load"}, call("act_states_load")).leaf = true
+    entry({"admin", "services", "athena_led", "states_save"}, call("act_states_save")).leaf = true
     -- 预览/测试: 临时播放某表情或测试屏 (不影响 pet.json, 超时自动回正常轮播)
     entry({"admin", "services", "athena_led", "pet_preview"}, call("act_pet_preview")).leaf = true
     entry({"admin", "services", "athena_led", "stop"}, call("act_stop")).leaf = true
@@ -87,6 +91,38 @@ function act_pet_save()
         return
     end
     local f = io.open(PET_JSON, "w")
+    if f then
+        f:write(body)
+        f:close()
+    end
+    sys.call("/etc/init.d/athena_led restart >/dev/null 2>&1")
+    http.prepare_content("application/json")
+    http.write('{"ok":true}')
+end
+
+-- 🌟 [v2.7.0] 状态机配置读取 (原样返回 states.json 文本)
+function act_states_load()
+    local c = "{\"states\":[]}"
+    local f = io.open(STATES_JSON, "r")
+    if f then
+        c = f:read("*a") or "{\"states\":[]}"
+        f:close()
+    end
+    if not c or c == "" then c = "{\"states\":[]}" end
+    http.prepare_content("application/json")
+    http.write(c)
+end
+
+-- 🌟 [v2.7.0] 状态机配置保存 (data = JSON 文本) 并重启服务
+function act_states_save()
+    local body = http.formvalue("data") or ""
+    if not body or body == "" or not body:match("^%s*{") then
+        http.status(400)
+        http.prepare_content("application/json")
+        http.write('{"ok":false,"msg":"invalid json"}')
+        return
+    end
+    local f = io.open(STATES_JSON, "w")
     if f then
         f:write(body)
         f:close()

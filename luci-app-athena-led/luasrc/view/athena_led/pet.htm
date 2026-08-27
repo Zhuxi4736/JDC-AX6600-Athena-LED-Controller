@@ -1,6 +1,6 @@
 <%
-local url_load = luci.dispatcher.build_url("admin","services","athena_led","pet_load")
-local url_save = luci.dispatcher.build_url("admin","services","athena_led","pet_save")
+local url_load = luci.dispatcher.build_url("admin","services","athena_led","states_load")
+local url_save = luci.dispatcher.build_url("admin","services","athena_led","states_save")
 local url_en   = luci.dispatcher.build_url("admin","services","athena_led","pet_enable")
 local url_stat = luci.dispatcher.build_url("admin","services","athena_led","status")
 local url_upload = luci.dispatcher.build_url("admin","services","athena_led","pet_upload")
@@ -11,13 +11,31 @@ local url_gpio    = luci.dispatcher.build_url("admin","services","athena_led","p
 %>
 <%+header%>
 <div class="cbi-map">
-<h2>Athena LED — 🐾 虚拟宠物（AI 心情屏）</h2>
-<p class="cbi-section-descr">将 AI 助手的状态（通过局域网 :8080 发送 HTTP <code>/pet/&lt;状态名&gt;</code>）映射为点阵屏表情。保存即写入 <code>/etc/athena_led/pet.json</code> 并重启服务，全程无需命令行。</p>
+<h2>Athena LED — 🎛️ 状态机（AI 心情屏）</h2>
+<p class="cbi-section-descr">把 LED 屏幕定义成一组「状态」：每个状态 = 显示内容（可多帧轮换）+ 触发条件 + 机身指示灯。全程图形化，<b>不用手改 JSON</b>。保存即写入 <code>/etc/athena_led/states.json</code> 并重启服务。</p>
 
 <div id="statusBox" class="cbi-section">
   <b>核心服务状态：</b> <span id="st">检测中…</span>
   <button class="cbi-button cbi-button-remove" id="stopBtn" style="margin-left:12px">停止服务</button>
   <button class="cbi-button cbi-button-apply" id="enBtn" style="margin-left:6px">启用并启动</button>
+</div>
+
+<div class="cbi-section">
+  <h3>状态列表</h3>
+  <p>每个状态是一套完整行为包。点「编辑」修改；「+ 新建状态」新增。记得最后点「保存全部并重启」。</p>
+  <table id="stateTbl" style="width:100%;border-collapse:collapse">
+    <thead><tr>
+      <th style="text-align:left;width:22%">状态名</th>
+      <th style="text-align:left;width:9%">默认</th>
+      <th style="text-align:left;width:9%">优先级</th>
+      <th style="text-align:left;width:34%">触发条件摘要</th>
+      <th style="text-align:left;width:26%">操作</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+  <button class="cbi-button cbi-button-add" id="addStateBtn">+ 新建状态</button>
+  <button class="cbi-button cbi-button-apply" id="saveAllBtn" style="margin-left:8px">保存全部并重启</button>
+  <pre id="msg" style="white-space:pre-wrap"></pre>
 </div>
 
 <div class="cbi-section">
@@ -43,24 +61,8 @@ local url_gpio    = luci.dispatcher.build_url("admin","services","athena_led","p
 </div>
 
 <div class="cbi-section">
-  <h3>状态 → 表情映射表</h3>
-  <p>每一行：一个状态名（由你的 AI 助手发送）+ 点阵屏（27×5）显示的内容。可任意增删——支持 GIF 动画、实时 CPU/上下行、时钟或自定义文字。</p>
-  <table id="petTbl" style="width:100%;border-collapse:collapse">
-    <thead><tr>
-      <th style="text-align:left;width:30%">状态名</th>
-      <th style="text-align:left;width:60%">屏幕显示</th>
-      <th style="text-align:left;width:10%"></th>
-    </tr></thead>
-    <tbody></tbody>
-  </table>
-  <button class="cbi-button cbi-button-add" id="addBtn">+ 添加状态</button>
-  <button class="cbi-button cbi-button-apply" id="saveBtn" style="margin-left:8px">保存映射并重启</button>
-  <pre id="msg" style="white-space:pre-wrap"></pre>
-</div>
-
-<div class="cbi-section">
-  <h3>预览测试（试播表情 / 不影响配置）</h3>
-  <p>选一个表情或显示内容，点「试播」让屏幕立即显示约 10 秒，然后自动回到正常监控轮播。像壁纸软件的预览一样，用来确认某个表情/显示效果在屏上的真实样子。</p>
+  <h3>预览测试（试播，不影响配置）</h3>
+  <p>选一个表情或显示内容，点「试播」让屏幕立即显示约 10 秒，然后自动回到正常监控。用来确认某个表情在屏上的真实样子。</p>
   <div style="margin-top:6px">
     <select id="prevSel" class="cbi-input-select" style="width:260px"></select>
     <input type="text" id="prevText" class="cbi-input-text" placeholder="或填自定义文字" style="width:160px;margin-left:6px" />
@@ -95,7 +97,7 @@ local url_gpio    = luci.dispatcher.build_url("admin","services","athena_led","p
 
 <div class="cbi-section">
   <h3>上传自定义表情（GIF / PNG → 点阵 .bin）</h3>
-  <p>选一张 GIF 或图片，浏览器会自动缩放裁切到 27×5 并二值化，预览后上传到路由器 <code>/etc/athena_led/anim/</code>。上传后可在上方映射表里选它。无需命令行、无需本机工具。</p>
+  <p>选一张 GIF 或图片，浏览器自动缩放裁切到 27×5 并二值化，预览后上传到路由器 <code>/etc/athena_led/anim/</code>。上传后可在「子状态」内容下拉里选它。无需命令行。</p>
   <input type="file" id="gifInput" accept="image/gif,image/png,image/jpeg" />
   <div style="margin-top:6px">
     二值化阈值：<input type="range" id="thr" min="1" max="254" value="128" style="vertical-align:middle" />
@@ -111,80 +113,338 @@ local url_gpio    = luci.dispatcher.build_url("admin","services","athena_led","p
 </div>
 </div>
 
+<!-- ===================== 状态编辑弹窗 ===================== -->
+<div id="modalMask" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:999">
+  <div id="modal" style="position:absolute;top:5%;left:50%;transform:translateX(-50%);width:min(880px,94vw);max-height:90vh;overflow:auto;background:#fff;color:#222;padding:18px;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.3)">
+    <h3 style="margin-top:0">编辑状态 <span id="modalId" style="color:#888;font-size:12px"></span></h3>
+
+    <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <div>状态名（展示用，可中文）</div>
+        <input type="text" id="mName" class="cbi-input-text" style="width:220px" placeholder="例如 有人按门铃" />
+      </div>
+      <div>
+        <label><input type="checkbox" id="mDefault" /> 设为默认状态（兜底）</label>
+      </div>
+      <div>
+        <div>优先级（数字越大越优先）</div>
+        <input type="number" id="mPriority" class="cbi-input-text" value="0" style="width:90px" />
+      </div>
+    </div>
+
+    <hr/>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <label><input type="radio" name="mPersist" value="1" checked /> 常驻（触发后一直显示，直到别的态抢走）</label><br/>
+        <label><input type="radio" name="mPersist" value="0" /> 瞬态（显示几秒后自动退回默认）</label>
+      </div>
+      <div>
+        <div>瞬态持续秒数</div>
+        <input type="number" id="mHold" class="cbi-input-text" value="10" min="1" max="600" style="width:90px" />
+      </div>
+    </div>
+
+    <hr/>
+    <h4 style="margin:6px 0">触发条件</h4>
+    <div>
+      规则关系：
+      <select id="mLogic" class="cbi-input-select" style="width:120px">
+        <option value="or">任意满足(or)</option>
+        <option value="and">全部满足(and)</option>
+      </select>
+      <span style="color:#888">（默认态留空即不触发，永远兜底）</span>
+    </div>
+    <div id="trigBox" style="margin-top:8px"></div>
+    <button class="cbi-button cbi-button-add" id="addTrigBtn">+ 加一条触发规则</button>
+
+    <hr/>
+    <h4 style="margin:6px 0">子状态（轮换显示，可多条）</h4>
+    <div id="subBox" style="margin-top:8px"></div>
+    <button class="cbi-button cbi-button-add" id="addSubBtn">+ 加一个子状态</button>
+
+    <hr/>
+    <div style="text-align:right">
+      <button class="cbi-button cbi-button-remove" id="modalCancel">取消</button>
+      <button class="cbi-button cbi-button-apply" id="modalOk" style="margin-left:8px">确定</button>
+    </div>
+  </div>
+</div>
+
 <script type="text/javascript">
 var PET_ANIM = [['pet_thinking.bin','思考中'],['pet_run.bin','奔跑'],['pet_wave.bin','招手'],['pet_jump.bin','跳跃'],['pet_failed.bin','失败/报错'],['pet_love.bin','爱心'],['pet_waiting.bin','等待'],['pet_idle.bin','待机']];
-var PET_MODS = [['cpu','CPU 占用率 %'],['updl','实时上下行速率'],['mem','内存占用率 %'],['load','系统负载'],['time','时钟']];
-var PET_DEF = [['thinking','pet_thinking.bin'],['run','pet_run.bin'],['wave','pet_wave.bin'],['jump','pet_jump.bin'],['failed','pet_failed.bin'],['love','pet_love.bin'],['waiting','pet_waiting.bin'],['idle','time']];
+var PET_MODS = [['cpu','CPU 占用率 %'],['updl','实时上下行速率'],['mem','内存占用率 %'],['load','系统负载'],['time','时钟'],['temp','芯片温度']];
 var URL_LOAD='<%=url_load%>';
 var URL_SAVE='<%=url_save%>';
 var URL_EN='<%=url_en%>';
 var URL_STAT='<%=url_stat%>';
 var URL_UPLOAD='<%=url_upload%>';
 var URL_LIST='<%=url_list%>';
+var URL_PREVIEW='<%=url_preview%>';
+var URL_STOP='<%=url_stop%>';
+var URL_GPIO='<%=url_gpio%>';
 
-var tbody = document.querySelector('#petTbl tbody');
-function addRow(sv,dv){
-  var tr=document.createElement('tr');
-  var td1=document.createElement('td'); td1.style.padding='2px';
-  var si=document.createElement('input'); si.className='cbi-input-text'; si.style.width='100%'; si.placeholder='例如 thinking'; if(sv) si.value=sv;
-  td1.appendChild(si);
-  var td2=document.createElement('td'); td2.style.padding='2px';
-  var sel=document.createElement('select'); sel.className='cbi-input-select'; sel.style.width='100%';
-  PET_ANIM.forEach(function(b){ var o=document.createElement('option'); o.value=b[0]; o.textContent=b[1]+' ('+b[0]+')'; sel.appendChild(o); });
-  PET_MODS.forEach(function(m){ var o=document.createElement('option'); o.value=m[0]; o.textContent=m[1]; sel.appendChild(o); });
-  var ot=document.createElement('option'); ot.value='__text'; ot.textContent='自定义文字'; sel.appendChild(ot);
-  var ti=document.createElement('input'); ti.className='cbi-input-text'; ti.style.width='100%'; ti.placeholder='要显示的文字';
-  var isText = dv && !PET_ANIM.indexOf && PET_ANIM.indexOf(dv)<0 && PET_MODS.map(function(x){return x[0]}).indexOf(dv)<0;
-  if(dv){ if(isText){ sel.value='__text'; ti.value=dv; } else { sel.value=dv; } }
-  ti.style.display = isText ? 'inline-block' : 'none';
-  sel.addEventListener('change', function(){ ti.style.display = (sel.value==='__text')?'inline-block':'none'; if(sel.value!=='__text') ti.value=''; });
-  var wrap=document.createElement('div'); wrap.appendChild(sel); wrap.appendChild(ti);
-  td2.appendChild(wrap);
-  var td3=document.createElement('td'); td3.style.padding='2px';
-  var del=document.createElement('button'); del.className='cbi-button cbi-button-remove'; del.textContent='删除';
-  del.addEventListener('click', function(ev){ ev.preventDefault(); tbody.removeChild(tr); });
-  td3.appendChild(del);
-  tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
-  tbody.appendChild(tr);
-}
+// ---------- 全局状态 ----------
+var STATES = [];        // 当前所有状态对象
+var EDIT_IDX = -1;      // 正在编辑的索引 (-1=新建)
+
+// 触发类型下拉选项
+var TRIG_TYPES = [
+  ['http','HTTP 信号（外部喊一声）'],
+  ['cpu','CPU 占用率 %'],
+  ['mem','内存占用率 %'],
+  ['load','系统负载'],
+  ['temp','芯片温度 ℃'],
+  ['time','时间段（如 22:30-07:30）'],
+  ['wan','外网断开'],
+  ['device','指定设备上下线'],
+  ['rate','实时网速'],
+  ['idle','空闲时长（秒）'],
+  ['ipchange','公网 IP 变化'],
+  ['script','自定义脚本退出码=0']
+];
+// 哪些类型需要「数值 + 运算符」
+var NUMERIC = {cpu:1,mem:1,load:1,temp:1,rate:1,idle:1};
+
 function post(url, data, cb){
-  var fd = '';
-  var first = true;
-  for(var k in data){ if(data.hasOwnProperty(k)){ fd += (first?'':'&') + k + '=' + encodeURIComponent(data[k]); first=false; } }
+  var fd='', first=true;
+  for(var k in data){ if(data.hasOwnProperty(k)){ fd += (first?'':'&')+k+'='+encodeURIComponent(data[k]); first=false; } }
   fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: fd })
-    .then(function(r){ return r.json(); })
-    .then(function(j){ cb(j); })
+    .then(function(r){ return r.json(); }).then(function(j){ cb(j); })
     .catch(function(e){ cb({ok:false,msg:''+e}); });
 }
-fetch(URL_LOAD).then(function(r){return r.json();}).then(function(j){
-  var obj={}; try{ obj=JSON.parse(j.data||'{}'); }catch(e){ obj={}; }
-  var keys=Object.keys(obj);
-  if(keys.length){ keys.forEach(function(k){ addRow(k, obj[k]); }); }
-  else { PET_DEF.forEach(function(d){ addRow(d[0], d[1]); }); }
-}).catch(function(){ PET_DEF.forEach(function(d){ addRow(d[0], d[1]); }); });
 
-document.getElementById('addBtn').addEventListener('click', function(ev){ ev.preventDefault(); addRow('',''); });
-document.getElementById('saveBtn').addEventListener('click', function(ev){
-  ev.preventDefault();
-  var map={};
-  var rows=tbody.querySelectorAll('tr');
-  rows.forEach(function(tr){
-    var inp=tr.querySelectorAll('input'); var sel=tr.querySelector('select');
-    var k=(inp[0].value||'').trim(); var v=sel.value;
-    if(v==='__text') v=(inp[1].value||'').trim();
-    if(k && v) map[k]=v;
+// ---------- 工具：创建下拉 ----------
+function opt(value, text){ var o=document.createElement('option'); o.value=value; o.textContent=text; return o; }
+function selFrom(arr, val){ var s=document.createElement('select'); s.className='cbi-input-select'; arr.forEach(function(a){ s.appendChild(opt(a[0],a[1])); }); if(val!==undefined) s.value=val; return s; }
+
+// ---------- 渲染状态列表 ----------
+function trigSummary(st){
+  if(!st.trigger || !st.trigger.rules || !st.trigger.rules.length) return st.is_default ? '（默认兜底）' : '（无触发）';
+  var logic = st.trigger.logic==='and' ? ' 且 ' : ' 或 ';
+  return st.trigger.rules.map(function(r){
+    switch(r.type){
+      case 'http': return 'HTTP:'+ (r.signal||'?');
+      case 'cpu': case 'mem': case 'load': case 'temp': case 'idle': return r.type+' '+r.op+' '+(r.val!==undefined?r.val:'');
+      case 'rate': return '网速('+(r.dir||'down')+') '+r.op+' '+(r.val||'');
+      case 'time': return '时间 '+r.start+'-'+r.end;
+      case 'wan': return '外网断开';
+      case 'device': return '设备 '+(r.op||'')+' '+(r.mac||'?');
+      case 'ipchange': return '公网IP变化';
+      case 'script': return '脚本 '+(r.script||'?');
+      default: return r.type;
+    }
+  }).join(logic);
+}
+function renderList(){
+  var tb=document.querySelector('#stateTbl tbody'); tb.innerHTML='';
+  STATES.forEach(function(st, i){
+    var tr=document.createElement('tr');
+    var c1=document.createElement('td'); c1.textContent = st.name || st.id || ('(状态'+i+')');
+    var c2=document.createElement('td'); c2.textContent = st.is_default ? '★是' : '';
+    var c3=document.createElement('td'); c3.textContent = st.priority||0;
+    var c4=document.createElement('td'); c4.textContent = trigSummary(st);
+    var c5=document.createElement('td');
+    var bEdit=document.createElement('button'); bEdit.className='cbi-button cbi-button-edit'; bEdit.textContent='编辑';
+    bEdit.addEventListener('click', function(){ openModal(i); });
+    var bDel=document.createElement('button'); bDel.className='cbi-button cbi-button-remove'; bDel.textContent='删除';
+    bDel.style.marginLeft='6px';
+    bDel.addEventListener('click', function(){ if(confirm('删除状态「'+(st.name||st.id)+'」？')){ STATES.splice(i,1); renderList(); } });
+    c5.appendChild(bEdit); c5.appendChild(bDel);
+    tr.appendChild(c1);tr.appendChild(c2);tr.appendChild(c3);tr.appendChild(c4);tr.appendChild(c5);
+    tb.appendChild(tr);
   });
+}
+
+// ---------- 触发规则行 ----------
+function addTrigRow(rule){
+  rule = rule || {type:'cpu', op:'>', val:80};
+  var row=document.createElement('div'); row.style.margin='4px 0'; row.style.display='flex'; row.style.gap='6px'; row.style.alignItems='center'; row.style.flexWrap='wrap';
+  var typeSel = selFrom(TRIG_TYPES, rule.type);
+  var opSel = document.createElement('select'); opSel.className='cbi-input-select'; ['>','<','>=','<=','='].forEach(function(o){ opSel.appendChild(opt(o,o)); }); opSel.value=rule.op||'>';
+  var valIn = document.createElement('input'); valIn.type='number'; valIn.className='cbi-input-text'; valIn.style.width='70px'; valIn.value=(rule.val!==undefined?rule.val:'');
+  var sigIn = document.createElement('input'); sigIn.type='text'; sigIn.className='cbi-input-text'; sigIn.style.width='110px'; sigIn.placeholder='信号名'; sigIn.value=rule.signal||'';
+  var macIn = document.createElement('input'); macIn.type='text'; macIn.className='cbi-input-text'; macIn.style.width='130px'; macIn.placeholder='MAC'; macIn.value=rule.mac||'';
+  var dirSel = document.createElement('select'); dirSel.className='cbi-input-select'; dirSel.appendChild(opt('down','下行↓')); dirSel.appendChild(opt('up','上行↑')); dirSel.value=rule.dir||'down';
+  var tStart = document.createElement('input'); tStart.type='text'; tStart.className='cbi-input-text'; tStart.style.width='70px'; tStart.placeholder='22:30'; tStart.value=rule.start||'';
+  var tEnd = document.createElement('input'); tEnd.type='text'; tEnd.className='cbi-input-text'; tEnd.style.width='70px'; tEnd.placeholder='07:30'; tEnd.value=rule.end||'';
+  var scrIn = document.createElement('input'); scrIn.type='text'; scrIn.className='cbi-input-text'; scrIn.style.width='180px'; scrIn.placeholder='/path/to/check.sh'; scrIn.value=rule.script||'';
+  var del=document.createElement('button'); del.className='cbi-button cbi-button-remove'; del.textContent='×';
+  del.addEventListener('click', function(){ row.parentNode.removeChild(row); });
+
+  function applyVisibility(){
+    var t=typeSel.value;
+    opSel.style.display = NUMERIC[t] ? '' : 'none';
+    valIn.style.display = NUMERIC[t] ? '' : 'none';
+    sigIn.style.display = (t==='http') ? '' : 'none';
+    macIn.style.display = (t==='device') ? '' : 'none';
+    dirSel.style.display = (t==='rate') ? '' : 'none';
+    tStart.style.display = (t==='time') ? '' : 'none';
+    tEnd.style.display = (t==='time') ? '' : 'none';
+    scrIn.style.display = (t==='script') ? '' : 'none';
+  }
+  typeSel.addEventListener('change', applyVisibility);
+  applyVisibility();
+  // 把控件挂到 row 上便于取值
+  row._collect = function(){
+    var r={ type:typeSel.value };
+    if(NUMERIC[r.type]){ r.op=opSel.value; r.val=parseFloat(valIn.value||'0'); }
+    if(r.type==='http') r.signal=sigIn.value.trim();
+    if(r.type==='device'){ r.op='join'; r.mac=macIn.value.trim(); }
+    if(r.type==='rate'){ r.dir=dirSel.value; r.op=opSel.value; r.val=parseFloat(valIn.value||'0'); }
+    if(r.type==='time'){ r.start=tStart.value.trim(); r.end=tEnd.value.trim(); }
+    if(r.type==='script') r.script=scrIn.value.trim();
+    return r;
+  };
+  row.appendChild(typeSel); row.appendChild(opSel); row.appendChild(valIn);
+  row.appendChild(sigIn); row.appendChild(macIn); row.appendChild(dirSel);
+  row.appendChild(tStart); row.appendChild(document.createTextNode('~')); row.appendChild(tEnd);
+  row.appendChild(scrIn); row.appendChild(del);
+  document.getElementById('trigBox').appendChild(row);
+}
+
+// ---------- 子状态行 ----------
+function addSubRow(sub){
+  sub = sub || {content:'module:time', mode:'static', speed:100, duration:5, leds:{clock:0,medal:0,up:0,down:0}};
+  var row=document.createElement('div'); row.style.margin='4px 0'; row.style.display='flex'; row.style.gap='6px'; row.style.alignItems='center'; row.style.flexWrap='wrap';
+  // 内容：动画 / 模块 / 文字 三选一
+  var kindSel=document.createElement('select'); kindSel.className='cbi-input-select'; kindSel.style.width='110px';
+  kindSel.appendChild(opt('anim','动画文件')); kindSel.appendChild(opt('mod','数据模块')); kindSel.appendChild(opt('text','文字'));
+  var animSel=document.createElement('select'); animSel.className='cbi-input-select animSel'; animSel.style.width='150px';
+  PET_ANIM.forEach(function(b){ animSel.appendChild(opt(b[0], b[1]+' ('+b[0]+')')); });
+  var modSel=document.createElement('select'); modSel.className='cbi-input-select'; modSel.style.width='150px';
+  PET_MODS.forEach(function(m){ modSel.appendChild(opt(m[0], m[1])); });
+  var txtIn=document.createElement('input'); txtIn.type='text'; txtIn.className='cbi-input-text'; txtIn.style.width='140px'; txtIn.placeholder='要显示的文字';
+  // 显示方式
+  var modeSel=document.createElement('select'); modeSel.className='cbi-input-select'; modeSel.style.width='120px';
+  modeSel.appendChild(opt('static','瞬切整屏')); modeSel.appendChild(opt('type','逐字打出')); modeSel.appendChild(opt('flow','横向滚动'));
+  // 速度 / 时长
+  var spd=document.createElement('input'); spd.type='number'; spd.className='cbi-input-text'; spd.style.width='64px'; spd.value=sub.speed||100; spd.title='速度ms/帧';
+  var dur=document.createElement('input'); dur.type='number'; dur.className='cbi-input-text'; dur.style.width='64px'; dur.value=sub.duration||5; dur.title='停留秒数';
+  // 机身灯
+  function ledChk(label, key, val){ var l=document.createElement('label'); l.style.marginLeft='4px'; var c=document.createElement('input'); c.type='checkbox'; c.checked=!!(val); c._key=key; l.appendChild(c); l.appendChild(document.createTextNode(label)); return l; }
+  var lk = sub.leds||{clock:0,medal:0,up:0,down:0};
+  var lc=ledChk('钟', 'clock', lk.clock); var lm=ledChk('章','medal',lk.medal); var lu=ledChk('↑','up',lk.up); var ld=ledChk('↓','down',lk.down);
+  var del=document.createElement('button'); del.className='cbi-button cbi-button-remove'; del.textContent='×';
+  del.addEventListener('click', function(){ row.parentNode.removeChild(row); });
+
+  // 初始化内容控件显示
+  var curContent = sub.content||'module:time';
+  function applyKind(){
+    var k=kindSel.value;
+    animSel.style.display = (k==='anim')?'':'none';
+    modSel.style.display = (k==='mod')?'':'none';
+    txtIn.style.display = (k==='text')?'':'none';
+  }
+  // 根据 curContent 反推 kind 与值
+  if(curContent.indexOf('module:')===0){ kindSel.value='mod'; modSel.value=curContent.slice(7); }
+  else if(curContent.indexOf('text:')===0){ kindSel.value='text'; txtIn.value=curContent.slice(5); }
+  else if(curContent.indexOf('.bin')>0){ kindSel.value='anim'; animSel.value=curContent; }
+  else { kindSel.value='text'; txtIn.value=curContent; }
+  kindSel.addEventListener('change', applyKind);
+  applyKind();
+  modeSel.value=sub.mode||'static';
+
+  row._collect=function(){
+    var k=kindSel.value, content;
+    if(k==='anim') content=animSel.value;
+    else if(k==='mod') content='module:'+modSel.value;
+    else if(k==='text') content='text:'+(txtIn.value.trim());
+    else content=txtIn.value.trim();
+    return {
+      content:content, mode:modeSel.value,
+      speed:parseInt(spd.value||'100',10), duration:parseInt(dur.value||'5',10),
+      leds:{ clock: lc.querySelector('input').checked?1:0, medal: lm.querySelector('input').checked?1:0, up: lu.querySelector('input').checked?1:0, down: ld.querySelector('input').checked?1:0 }
+    };
+  };
+  row.appendChild(kindSel); row.appendChild(animSel); row.appendChild(modSel); row.appendChild(txtIn);
+  row.appendChild(document.createTextNode('方式')); row.appendChild(modeSel);
+  row.appendChild(document.createTextNode('速度')); row.appendChild(spd);
+  row.appendChild(document.createTextNode('时长')); row.appendChild(dur);
+  row.appendChild(lc); row.appendChild(lm); row.appendChild(lu); row.appendChild(ld);
+  row.appendChild(del);
+  document.getElementById('subBox').appendChild(row);
+}
+
+// ---------- 弹窗开关 ----------
+function openModal(idx){
+  EDIT_IDX = idx;
+  var st = (idx>=0) ? STATES[idx] : {id:'',name:'',is_default:false,priority:0,persistent:false,hold_secs:10,trigger:null,substates:[]};
+  document.getElementById('modalId').textContent = (idx>=0)?('(编辑 #'+idx+')'):'(新建)';
+  document.getElementById('mName').value = st.name||'';
+  document.getElementById('mDefault').checked = !!st.is_default;
+  document.getElementById('mPriority').value = (st.priority!==undefined)?st.priority:0;
+  document.querySelector('input[name=mPersist][value="'+(st.persistent?'1':'0')+'"]').checked = true;
+  document.getElementById('mHold').value = st.hold_secs||10;
+  // 触发
+  document.getElementById('trigBox').innerHTML='';
+  if(st.trigger && st.trigger.rules && st.trigger.rules.length){
+    document.getElementById('mLogic').value = st.trigger.logic||'or';
+    st.trigger.rules.forEach(function(r){ addTrigRow(r); });
+  } else {
+    document.getElementById('mLogic').value='or';
+  }
+  // 子状态
+  document.getElementById('subBox').innerHTML='';
+  if(st.substates && st.substates.length){ st.substates.forEach(function(s){ addSubRow(s); }); }
+  else { addSubRow(); }
+  document.getElementById('modalMask').style.display='block';
+}
+function closeModal(){ document.getElementById('modalMask').style.display='none'; EDIT_IDX=-1; }
+
+document.getElementById('modalCancel').addEventListener('click', closeModal);
+document.getElementById('modalMask').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
+document.getElementById('addTrigBtn').addEventListener('click', function(){ addTrigRow(); });
+document.getElementById('addSubBtn').addEventListener('click', function(){ addSubRow(); });
+
+document.getElementById('modalOk').addEventListener('click', function(){
+  var name=document.getElementById('mName').value.trim();
+  if(!name){ alert('请填写状态名'); return; }
+  // 收集触发规则
+  var trigRows=document.querySelectorAll('#trigBox > div');
+  var rules=[]; trigRows.forEach(function(r){ if(r._collect) rules.push(r._collect()); });
+  var trigger=null;
+  if(rules.length){
+    trigger={ logic:document.getElementById('mLogic').value, rules:rules };
+  }
+  // 收集子状态
+  var subRows=document.querySelectorAll('#subBox > div');
+  var subs=[]; subRows.forEach(function(r){ if(r._collect){ var s=r._collect(); if(s.content) subs.push(s); } });
+  if(!subs.length){ alert('请至少添加一个子状态'); return; }
+  var persist = document.querySelector('input[name=mPersist]:checked').value==='1';
+  var obj={
+    id: 'st'+Date.now(),
+    name:name,
+    is_default: document.getElementById('mDefault').checked,
+    priority: parseInt(document.getElementById('mPriority').value||'0',10),
+    persistent: persist,
+    hold_secs: parseInt(document.getElementById('mHold').value||'10',10),
+    trigger: trigger,
+    substates: subs
+  };
+  if(EDIT_IDX>=0) STATES[EDIT_IDX]=obj; else STATES.push(obj);
+  renderList();
+  closeModal();
+});
+
+// ---------- 加载 / 保存 ----------
+fetch(URL_LOAD).then(function(r){return r.json();}).then(function(j){
+  try{ var o=JSON.parse(j.data||'{}'); if(o && o.states) STATES=o.states; }catch(e){}
+  if(!STATES.length){ STATES=[ {id:'idle',name:'默认·悠闲',is_default:true,priority:0,persistent:true,hold_secs:10,trigger:null,substates:[{content:'module:time',mode:'static',speed:100,duration:5,leds:{clock:0,medal:0,up:0,down:0}},{content:'module:updl',mode:'flow',speed:80,duration:5,leds:{clock:0,medal:0,up:0,down:0}}]} ]; }
+  renderList();
+}).catch(function(){ renderList(); });
+
+document.getElementById('addStateBtn').addEventListener('click', function(ev){ ev.preventDefault(); openModal(-1); });
+document.getElementById('saveAllBtn').addEventListener('click', function(ev){
+  ev.preventDefault();
+  var payload={ states: STATES };
   var msg=document.getElementById('msg');
-  if(!Object.keys(map).length){ msg.textContent='没有有效的行可保存。'; return; }
-  post(URL_SAVE, {data: JSON.stringify(map)}, function(j){
+  post(URL_SAVE, {data: JSON.stringify(payload)}, function(j){
     if(j && j.ok){ msg.textContent='已保存，服务已重启。'; }
     else { msg.textContent='保存失败：'+(j&&j.msg?j.msg:'未知错误'); }
   });
 });
-document.getElementById('enBtn').addEventListener('click', function(ev){
-  ev.preventDefault();
-  post(URL_EN, {enabled:'1'}, function(j){ if(j&&j.ok){ document.getElementById('st').textContent='已启用，正在重启…'; refreshStatus(); } });
-});
+
+// ---------- 服务开关 / GPIO / 预览 / 指示灯 / 上传 (复用原逻辑) ----------
 function refreshStatus(){
   fetch(URL_STAT).then(function(r){return r.json();}).then(function(j){
     document.getElementById('st').innerHTML = j.running
@@ -193,269 +453,60 @@ function refreshStatus(){
   }).catch(function(){});
 }
 refreshStatus(); setInterval(refreshStatus, 5000);
-
-// ============================================================
-// 服务开关 / GPIO 设置 / 预览测试
-// ============================================================
-var URL_PREVIEW='<%=url_preview%>';
-var URL_STOP='<%=url_stop%>';
-var URL_GPIO='<%=url_gpio%>';
-
-// 停止服务
-document.getElementById('stopBtn').addEventListener('click', function(ev){
-  ev.preventDefault();
-  if(!confirm('确定停止 Athena LED 核心服务？屏幕将熄灭。')) return;
-  post(URL_STOP, {}, function(j){ if(j&&j.ok){ document.getElementById('st').textContent='已停止'; refreshStatus(); } });
-});
-
-// GPIO 应用并重启
-document.getElementById('gpioApply').addEventListener('click', function(ev){
-  ev.preventDefault();
-  var base=document.getElementById('gpioBase').value;
-  post(URL_GPIO, {action:'apply', base:base}, function(j){
-    document.getElementById('gpioMsg').textContent = (j&&j.ok)?'已应用 gpio_base='+base+'，服务重启中…':'失败：'+(j&&j.msg?j.msg:'未知');
-    refreshStatus();
-  });
-});
-
-// GPIO 测试 (不改动配置)
-function gpioTest(base){
-  post(URL_GPIO, {action:'test', base:base}, function(j){
-    document.getElementById('gpioMsg').textContent = (j&&j.ok)?'已用 '+base+' 启动测试，看屏幕是否亮约5秒':'失败：'+(j&&j.msg?j.msg:'未知');
-  });
-}
+document.getElementById('enBtn').addEventListener('click', function(ev){ ev.preventDefault(); post(URL_EN, {enabled:'1'}, function(j){ if(j&&j.ok){ document.getElementById('st').textContent='已启用，正在重启…'; refreshStatus(); } }); });
+document.getElementById('stopBtn').addEventListener('click', function(ev){ ev.preventDefault(); if(!confirm('确定停止 Athena LED 核心服务？屏幕将熄灭。')) return; post(URL_STOP, {}, function(j){ if(j&&j.ok){ document.getElementById('st').textContent='已停止'; refreshStatus(); } }); });
+document.getElementById('gpioApply').addEventListener('click', function(ev){ ev.preventDefault(); var base=document.getElementById('gpioBase').value; post(URL_GPIO, {action:'apply', base:base}, function(j){ document.getElementById('gpioMsg').textContent=(j&&j.ok)?'已应用 gpio_base='+base+'，服务重启中…':'失败：'+(j&&j.msg?j.msg:'未知'); refreshStatus(); }); });
+function gpioTest(base){ post(URL_GPIO, {action:'test', base:base}, function(j){ document.getElementById('gpioMsg').textContent=(j&&j.ok)?'已用 '+base+' 启动测试，看屏幕是否亮约5秒':'失败：'+(j&&j.msg?j.msg:'未知'); }); }
 document.getElementById('gpioTestAuto').addEventListener('click', function(ev){ ev.preventDefault(); gpioTest('auto'); });
 document.getElementById('gpioTest432').addEventListener('click', function(ev){ ev.preventDefault(); gpioTest('432'); });
 document.getElementById('gpioTest512').addEventListener('click', function(ev){ ev.preventDefault(); gpioTest('512'); });
 
-// 预览选择框: 复用 PET_ANIM / PET_MODS + 文字
 var prevSel=document.getElementById('prevSel');
 PET_ANIM.forEach(function(b){ var o=document.createElement('option'); o.value='anim:'+b[0]; o.textContent='动画：'+b[1]+' ('+b[0]+')'; prevSel.appendChild(o); });
 PET_MODS.forEach(function(m){ var o=document.createElement('option'); o.value='mod:'+m[0]; o.textContent='模块：'+m[1]; prevSel.appendChild(o); });
+(function loadLedStatus(){ fetch(URL_GPIO + '?action=led_status').then(function(r){return r.json();}).then(function(j){ if(j.clock!==undefined) document.getElementById('ledClock').checked=(j.clock==='0'||j.clock===0); if(j.medal!==undefined) document.getElementById('ledMedal').checked=(j.medal==='0'||j.medal===0); if(j.up!==undefined) document.getElementById('ledUp').checked=(j.up==='0'||j.up===0); if(j.down!==undefined) document.getElementById('ledDown').checked=(j.down==='0'||j.down===0); }).catch(function(){}); })();
+document.getElementById('prevBtn').addEventListener('click', function(ev){ ev.preventDefault(); var txt=document.getElementById('prevText').value.trim(); var spec; if(txt){ spec=txt; } else { var v=prevSel.value; if(v.startsWith('anim:')) spec=v.slice(5); else if(v.startsWith('mod:')) spec=v.slice(4); else spec=v; } if(!spec){ document.getElementById('prevMsg').textContent='请选择或填写内容'; return; } var mode=document.getElementById('prevMode').value; var speed=document.getElementById('prevSpeed').value||'100'; post(URL_PREVIEW, {spec:spec, secs:'10', mode:mode, speed:speed}, function(j){ document.getElementById('prevMsg').textContent=(j&&j.ok)?'试播中，约10秒后自动回轮播':'失败：'+(j&&j.msg?j.msg:'未知'); }); });
+document.getElementById('ledSave').addEventListener('click', function(ev){ ev.preventDefault(); function on(id){ return document.getElementById(id).checked ? '0' : '1'; } post(URL_GPIO, {action:'led', clock:on('ledClock'), medal:on('ledMedal'), up:on('ledUp'), down:on('ledDown')}, function(j){ document.getElementById('ledMsg').textContent=(j&&j.ok)?'已保存指示灯设置，服务重启中…':'失败：'+(j&&j.msg?j.msg:'未知'); refreshStatus(); }); });
+document.getElementById('prevStop').addEventListener('click', function(ev){ ev.preventDefault(); post(URL_PREVIEW, {spec:'__stop__', secs:'1'}, function(j){ document.getElementById('prevMsg').textContent='已停止预览，回到正常轮播'; }); });
 
-// 回填机身指示灯当前状态 (1=关 不勾选, 0=亮 勾选)
-(function loadLedStatus(){
-  fetch(URL_GPIO + '?action=led_status').then(function(r){return r.json();}).then(function(j){
-    if(j.clock!==undefined) document.getElementById('ledClock').checked = (j.clock==='0'||j.clock===0);
-    if(j.medal!==undefined) document.getElementById('ledMedal').checked = (j.medal==='0'||j.medal===0);
-    if(j.up!==undefined)    document.getElementById('ledUp').checked    = (j.up==='0'||j.up===0);
-    if(j.down!==undefined)  document.getElementById('ledDown').checked  = (j.down==='0'||j.down===0);
-  }).catch(function(){});
-})();
-
-document.getElementById('prevBtn').addEventListener('click', function(ev){
-  ev.preventDefault();
-  var txt=document.getElementById('prevText').value.trim();
-  var spec;
-  if(txt){ spec=txt; }
-  else {
-    var v=prevSel.value;
-    if(v.startsWith('anim:')) spec=v.slice(5);
-    else if(v.startsWith('mod:')) spec=v.slice(4);  // 裸模块名, 后端自动补 module:
-    else spec=v;
-  }
-  if(!spec){ document.getElementById('prevMsg').textContent='请选择或填写内容'; return; }
-  var mode=document.getElementById('prevMode').value;
-  var speed=document.getElementById('prevSpeed').value||'100';
-  // 后端 showraw 签名: spec secs [mode] [speed]
-  post(URL_PREVIEW, {spec:spec, secs:'10', mode:mode, speed:speed}, function(j){
-    document.getElementById('prevMsg').textContent = (j&&j.ok)?'试播中（'+spec+' '+mode+' '+'ms），约10秒后自动回轮播':'失败：'+(j&&j.msg?j.msg:'未知');
-  });
-});
-
-// 机身指示灯保存 (写 UCI disable_led_* 并重启)
-document.getElementById('ledSave').addEventListener('click', function(ev){
-  ev.preventDefault();
-  function on(id){ return document.getElementById(id).checked ? '0' : '1'; } // 勾选=亮(不禁用)=0
-  post(URL_GPIO, {action:'led', clock:on('ledClock'), medal:on('ledMedal'), up:on('ledUp'), down:on('ledDown')}, function(j){
-    document.getElementById('ledMsg').textContent = (j&&j.ok)?'已保存指示灯设置，服务重启中…':'失败：'+(j&&j.msg?j.msg:'未知');
-    refreshStatus();
-  });
-});
-
-document.getElementById('prevStop').addEventListener('click', function(ev){
-  ev.preventDefault();
-  // 发 home 指令让调度器回到轮播首页
-  post(URL_PREVIEW, {spec:'__stop__', secs:'1'}, function(j){
-    document.getElementById('prevMsg').textContent='已停止预览，回到正常轮播';
-  });
-});
-
-// ============================================================
-// 🌟 上传 GIF/PNG -> 27×5 单色 .bin (复刻 gif2bin.py 字节格式)
-//   每帧 27 字节, 每字节=1列, bit0=最上行 (阈值≥128=亮)
-// ============================================================
+// ---------- GIF/PNG -> 27x5 .bin 上传 ----------
 var COLS=27, ROWS=5, FPS=15, MAXFR=120;
-var gifFrames=null; // 已转好的帧数据 (array of Uint8Array 27字节)
-
+var gifFrames=null;
 var gifInput=document.getElementById('gifInput');
-var thr=document.getElementById('thr');
-var thrVal=document.getElementById('thrVal');
-var preview=document.getElementById('preview');
-var binName=document.getElementById('binName');
-var upBtn=document.getElementById('upBtn');
-var upMsg=document.getElementById('upMsg');
-var animList=document.getElementById('animList');
-
+var thr=document.getElementById('thr'); var thrVal=document.getElementById('thrVal');
+var preview=document.getElementById('preview'); var binName=document.getElementById('binName');
+var upBtn=document.getElementById('upBtn'); var upMsg=document.getElementById('upMsg'); var animList=document.getElementById('animList');
 thr.addEventListener('input', function(){ thrVal.textContent=thr.value; if(gifFrames) renderPreview(); });
-
-// 读 GIF 所有帧
 function loadGifFrames(file, cb){
-  var url=URL.createObjectURL(file);
-  var img=new Image();
+  var url=URL.createObjectURL(file); var img=new Image();
   img.onload=function(){
-    var frames=[];
-    var canvas=document.createElement('canvas');
-    canvas.width=COLS; canvas.height=ROWS;
-    var ctx=canvas.getContext('2d');
-    // 逐帧: 用 createImageBitmap + ImageDecoder 若可用, 否则退化为单帧
+    var frames=[]; var canvas=document.createElement('canvas'); canvas.width=COLS; canvas.height=ROWS; var ctx=canvas.getContext('2d');
     if('ImageDecoder' in window && file.type==='image/gif'){
       var dec=new ImageDecoder({data:file, type:'image/gif'});
-      dec.tracks.ready.then(function(){
-        var count=dec.tracks.selectedTrack.frameCount;
-        var n=Math.min(count, MAXFR*4);
-        var seq=[];
-        function step(i){
-          if(i>=n){ finish(frames); return; }
-          dec.decode({frameIndex:i}).then(function(r){
-            drawToFrames(r.image, frames, ctx);
-            step(i+1);
-          }).catch(function(){ finish(frames); });
-        }
-        step(0);
-      }).catch(function(){ singleFrame(img, frames, ctx, finish); });
-    } else {
-      singleFrame(img, frames, ctx, finish);
-    }
+      dec.tracks.ready.then(function(){ var count=dec.tracks.selectedTrack.frameCount; var n=Math.min(count, MAXFR*4); function step(i){ if(i>=n){ finish(frames); return; } dec.decode({frameIndex:i}).then(function(r){ drawToFrames(r.image, frames, ctx); step(i+1); }).catch(function(){ finish(frames); }); } step(0); }).catch(function(){ singleFrame(img, frames, ctx, finish); });
+    } else { singleFrame(img, frames, ctx, finish); }
     function finish(fr){ URL.revokeObjectURL(url); cb(fr); }
   };
-  img.onerror=function(){ upMsg.textContent='图片加载失败'; };
-  img.src=url;
+  img.onerror=function(){ upMsg.textContent='图片加载失败'; }; img.src=url;
 }
-
-function singleFrame(img, frames, ctx, cb){
-  drawToFrames(img, frames, ctx);
-  cb(frames);
-}
-
+function singleFrame(img, frames, ctx, cb){ drawToFrames(img, frames, ctx); cb(frames); }
 function drawToFrames(src, frames, ctx){
-  // 等比缩放到宽27
-  var w=src.width||src.naturalWidth, h=src.height||src.naturalHeight;
-  if(!w||!h) return;
-  var th=Math.max(1, Math.round(h*(COLS/w)));
-  ctx.canvas.width=COLS; ctx.canvas.height=th;
-  ctx.drawImage(src,0,0,COLS,th);
-  // 取中5行
-  var top=Math.max(0, Math.floor((th-ROWS)/2));
-  var imgData=ctx.getImageData(0,top,COLS,Math.min(ROWS,th-top));
-  var fbuf=new Uint8Array(COLS);
-  var t=parseInt(thr.value,10);
-  for(var c=0;c<COLS;c++){
-    var byte=0;
-    for(var r=0;r<ROWS;r++){
-      var idx=(r*COLS+c)*4;
-      var lum=(imgData.data[idx]*0.299+imgData.data[idx+1]*0.587+imgData.data[idx+2]*0.114);
-      if(lum>=t) byte|=(1<<r);
-    }
-    fbuf[c]=byte;
-  }
-  frames.push(fbuf);
+  var w=src.width||src.naturalWidth, h=src.height||src.naturalHeight; if(!w||!h) return;
+  var th=Math.max(1, Math.round(h*(COLS/w))); ctx.canvas.width=COLS; ctx.canvas.height=th; ctx.drawImage(src,0,0,COLS,th);
+  var top=Math.max(0, Math.floor((th-ROWS)/2)); var imgData=ctx.getImageData(0,top,COLS,Math.min(ROWS,th-top)); var fbuf=new Uint8Array(COLS); var t=parseInt(thr.value,10);
+  for(var c=0;c<COLS;c++){ var byte=0; for(var r=0;r<ROWS;r++){ var idx=(r*COLS+c)*4; var lum=(imgData.data[idx]*0.299+imgData.data[idx+1]*0.587+imgData.data[idx+2]*0.114); if(lum>=t) byte|=(1<<r); } fbuf[c]=byte; } frames.push(fbuf);
 }
-
 function renderPreview(){
-  if(!gifFrames||!gifFrames.length){ preview.innerHTML=''; return; }
-  preview.innerHTML='';
-  gifFrames.slice(0,12).forEach(function(fr){
-    var box=document.createElement('div');
-    box.style.textAlign='center';
-    var cv=document.createElement('canvas');
-    cv.width=COLS*4; cv.height=ROWS*4;
-    var c=cv.getContext('2d');
-    c.fillStyle='#200'; c.fillRect(0,0,cv.width,cv.height);
-    c.fillStyle='#f33';
-    for(var col=0;col<COLS;col++){
-      for(var row=0;row<ROWS;row++){
-        if(fr[col]&(1<<row)) c.fillRect(col*4,row*4,4,4);
-      }
-    }
-    box.appendChild(cv);
-    preview.appendChild(box);
-  });
-  if(gifFrames.length>12){
-    var more=document.createElement('div');
-    more.style.alignSelf='flex-end';
-    more.textContent='…共'+gifFrames.length+'帧';
-    preview.appendChild(more);
-  }
+  if(!gifFrames||!gifFrames.length){ preview.innerHTML=''; return; } preview.innerHTML='';
+  gifFrames.slice(0,12).forEach(function(fr){ var box=document.createElement('div'); box.style.textAlign='center'; var cv=document.createElement('canvas'); cv.width=COLS*4; cv.height=ROWS*4; var c=cv.getContext('2d'); c.fillStyle='#200'; c.fillRect(0,0,cv.width,cv.height); c.fillStyle='#f33'; for(var col=0;col<COLS;col++){ for(var row=0;row<ROWS;row++){ if(fr[col]&(1<<row)) c.fillRect(col*4,row*4,4,4); } } box.appendChild(cv); preview.appendChild(box); });
+  if(gifFrames.length>12){ var more=document.createElement('div'); more.style.alignSelf='flex-end'; more.textContent='…共'+gifFrames.length+'帧'; preview.appendChild(more); }
 }
-
-function buildBin(){
-  // 抽帧到 MAXFR
-  var fr=gifFrames;
-  if(fr.length>MAXFR){
-    var step=fr.length/MAXFR, out=[];
-    for(var i=0;i<MAXFR;i++) out.push(fr[Math.floor(i*step)]);
-    fr=out;
-  }
-  var buf=new Uint8Array(fr.length*COLS);
-  for(var i=0;i<fr.length;i++) buf.set(fr[i], i*COLS);
-  return buf;
-}
-
-gifInput.addEventListener('change', function(){
-  var f=gifInput.files&&gifInput.files[0];
-  if(!f){ return; }
-  upMsg.textContent='解析中…';
-  loadGifFrames(f, function(frames){
-    gifFrames=frames;
-    if(!frames.length){ upMsg.textContent='无法解析该图片'; return; }
-    renderPreview();
-    upMsg.textContent='已解析 '+frames.length+' 帧';
-    if(!binName.value) binName.value=(f.name.replace(/\.[^.]+$/, '')+'.bin').toLowerCase();
-  });
-});
-
-upBtn.addEventListener('click', function(){
-  if(!gifFrames||!gifFrames.length){ upMsg.textContent='请先选择图片'; return; }
-  var name=(binName.value||'').trim();
-  if(!name.endsWith('.bin')) name+='.bin';
-  if(!/^[%w_%._-]+%.bin$/.test(name)){ upMsg.textContent='文件名须为 xxx.bin 且不含特殊字符'; return; }
-  var buf=buildBin();
-  // 转 base64 (浏览器原生)
-  var bin='';
-  var bytes=Array.from(buf);
-  var chunk;
-  for(var i=0;i<bytes.length;i+=0x8000){
-    chunk=bytes.slice(i,i+0x8000);
-    bin+=String.fromCharCode.apply(null, chunk);
-  }
-  var b64=btoa(bin);
-  upMsg.textContent='上传中…';
-  var fd='name='+encodeURIComponent(name)+'&data='+encodeURIComponent(b64);
-  fetch(URL_UPLOAD, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: fd })
-    .then(function(r){return r.json();})
-    .then(function(j){
-      if(j&&j.ok){ upMsg.textContent='已上传 '+name+' ('+(buf.length/COLS)+' 帧)'; refreshAnimList(); }
-      else { upMsg.textContent='上传失败：'+(j&&j.msg?j.msg:'未知'); }
-    })
-    .catch(function(e){ upMsg.textContent='上传出错：'+e; });
-});
-
-function refreshAnimList(){
-  fetch(URL_LIST).then(function(r){return r.json();}).then(function(j){
-    if(!j||!j.files) return;
-    animList.innerHTML='<b>已上传动画：</b> '+j.files.join('、');
-    // 同步到上方映射表下拉
-    var sel=document.querySelectorAll('#petTbl select');
-    j.files.forEach(function(fn){
-      sel.forEach(function(s){
-        if(!s.querySelector('option[value="'+fn+'"]')){
-          var o=document.createElement('option'); o.value=fn; o.textContent=fn; s.appendChild(o);
-        }
-      });
-    });
-  }).catch(function(){});
-}
+function buildBin(){ var fr=gifFrames; if(fr.length>MAXFR){ var step=fr.length/MAXFR, out=[]; for(var i=0;i<MAXFR;i++) out.push(fr[Math.floor(i*step)]); fr=out; } var buf=new Uint8Array(fr.length*COLS); for(var i=0;i<fr.length;i++) buf.set(fr[i], i*COLS); return buf; }
+gifInput.addEventListener('change', function(){ var f=gifInput.files&&gifInput.files[0]; if(!f){ return; } upMsg.textContent='解析中…'; loadGifFrames(f, function(frames){ gifFrames=frames; if(!frames.length){ upMsg.textContent='无法解析该图片'; return; } renderPreview(); upMsg.textContent='已解析 '+frames.length+' 帧'; if(!binName.value) binName.value=(f.name.replace(/\.[^.]+$/, '')+'.bin').toLowerCase(); }); });
+upBtn.addEventListener('click', function(){ if(!gifFrames||!gifFrames.length){ upMsg.textContent='请先选择图片'; return; } var name=(binName.value||'').trim(); if(!name.endsWith('.bin')) name+='.bin'; if(!/^[\w_.\-]+\.bin$/.test(name)){ upMsg.textContent='文件名须为 xxx.bin 且不含特殊字符'; return; } var buf=buildBin(); var bin=''; var bytes=Array.from(buf); var chunk; for(var i=0;i<bytes.length;i+=0x8000){ chunk=bytes.slice(i,i+0x8000); bin+=String.fromCharCode.apply(null, chunk); } var b64=btoa(bin); upMsg.textContent='上传中…'; var fd='name='+encodeURIComponent(name)+'&data='+encodeURIComponent(b64); fetch(URL_UPLOAD, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: fd }).then(function(r){return r.json();}).then(function(j){ if(j&&j.ok){ upMsg.textContent='已上传 '+name+' ('+(buf.length/COLS)+' 帧)'; refreshAnimList(); } else { upMsg.textContent='上传失败：'+(j&&j.msg?j.msg:'未知'); } }).catch(function(e){ upMsg.textContent='上传出错：'+e; }); });
+function refreshAnimList(){ fetch(URL_LIST).then(function(r){return r.json();}).then(function(j){ if(!j||!j.files) return; animList.innerHTML='<b>已上传动画：</b> '+j.files.join('、'); // 同步到所有子状态行的动画下拉
+  document.querySelectorAll('.animSel').forEach(function(s){ j.files.forEach(function(fn){ if(!s.querySelector('option[value="'+fn+'"]')) s.appendChild(opt(fn, fn)); }); });
+}).catch(function(){}); }
 refreshAnimList();
 </script>
 <%+footer%>
