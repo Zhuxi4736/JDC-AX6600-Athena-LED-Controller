@@ -54,7 +54,7 @@ function act_status()
         end
     end
     if not e.running then
-        local pid = sys.exec("pgrep -x athena-led | head -n 1")
+        local pid = sys.exec("pgrep athena-led | head -n 1")
         if pid and pid ~= "" then
             e.running = true
             e.pid = string.gsub(pid, "\n", "")
@@ -251,8 +251,8 @@ function act_pet_gpio()
         return
     end
     if action == "apply" then
-        uci:set("athena_led", "general", "gpio_base", base)
-        uci:commit("athena_led")
+        -- 用 shell uci set (无引号) 写入, 绕开 Lua uci 绑定对数字值的引号问题
+        sys.call(string.format("uci set athena_led.general.gpio_base=%s; uci commit athena_led", base))
         sys.call("/etc/init.d/athena_led restart >/dev/null 2>&1")
         http.prepare_content("application/json")
         http.write('{"ok":true,"base":"' .. base .. '","msg":"已应用 gpio_base=' .. base .. ' 并重启"}')
