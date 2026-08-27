@@ -3,6 +3,8 @@ local url_load = luci.dispatcher.build_url("admin","services","athena_led","pet_
 local url_save = luci.dispatcher.build_url("admin","services","athena_led","pet_save")
 local url_en   = luci.dispatcher.build_url("admin","services","athena_led","pet_enable")
 local url_stat = luci.dispatcher.build_url("admin","services","athena_led","status")
+local url_upload = luci.dispatcher.build_url("admin","services","athena_led","pet_upload")
+local url_list   = luci.dispatcher.build_url("admin","services","athena_led","pet_list")
 %>
 <%+header%>
 <div class="cbi-map">
@@ -34,6 +36,23 @@ local url_stat = luci.dispatcher.build_url("admin","services","athena_led","stat
   <button class="cbi-button cbi-button-apply" id="saveBtn" style="margin-left:8px">保存映射并重启</button>
   <pre id="msg" style="white-space:pre-wrap"></pre>
 </div>
+
+<div class="cbi-section">
+  <h3>上传自定义表情（GIF / PNG → 点阵 .bin）</h3>
+  <p>选一张 GIF 或图片，浏览器会自动缩放裁切到 27×5 并二值化，预览后上传到路由器 <code>/etc/athena_led/anim/</code>。上传后可在上方映射表里选它。无需命令行、无需本机工具。</p>
+  <input type="file" id="gifInput" accept="image/gif,image/png,image/jpeg" />
+  <div style="margin-top:6px">
+    二值化阈值：<input type="range" id="thr" min="1" max="254" value="128" style="vertical-align:middle" />
+    <span id="thrVal">128</span>
+  </div>
+  <div id="preview" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"></div>
+  <div style="margin-top:8px">
+    文件名（.bin）：<input type="text" id="binName" class="cbi-input-text" placeholder="mycat.bin" style="width:200px" />
+    <button class="cbi-button cbi-button-apply" id="upBtn" style="margin-left:8px">上传到路由器</button>
+    <span id="upMsg" style="margin-left:8px"></span>
+  </div>
+  <div id="animList" style="margin-top:8px"></div>
+</div>
 </div>
 
 <script type="text/javascript">
@@ -44,6 +63,8 @@ var URL_LOAD='<%=url_load%>';
 var URL_SAVE='<%=url_save%>';
 var URL_EN='<%=url_en%>';
 var URL_STAT='<%=url_stat%>';
+var URL_UPLOAD='<%=url_upload%>';
+var URL_LIST='<%=url_list%>';
 
 var tbody = document.querySelector('#petTbl tbody');
 function addRow(sv,dv){
@@ -116,5 +137,182 @@ function refreshStatus(){
   }).catch(function(){});
 }
 refreshStatus(); setInterval(refreshStatus, 5000);
+
+// ============================================================
+// 🌟 上传 GIF/PNG -> 27×5 单色 .bin (复刻 gif2bin.py 字节格式)
+//   每帧 27 字节, 每字节=1列, bit0=最上行 (阈值≥128=亮)
+// ============================================================
+var COLS=27, ROWS=5, FPS=15, MAXFR=120;
+var gifFrames=null; // 已转好的帧数据 (array of Uint8Array 27字节)
+
+var gifInput=document.getElementById('gifInput');
+var thr=document.getElementById('thr');
+var thrVal=document.getElementById('thrVal');
+var preview=document.getElementById('preview');
+var binName=document.getElementById('binName');
+var upBtn=document.getElementById('upBtn');
+var upMsg=document.getElementById('upMsg');
+var animList=document.getElementById('animList');
+
+thr.addEventListener('input', function(){ thrVal.textContent=thr.value; if(gifFrames) renderPreview(); });
+
+// 读 GIF 所有帧
+function loadGifFrames(file, cb){
+  var url=URL.createObjectURL(file);
+  var img=new Image();
+  img.onload=function(){
+    var frames=[];
+    var canvas=document.createElement('canvas');
+    canvas.width=COLS; canvas.height=ROWS;
+    var ctx=canvas.getContext('2d');
+    // 逐帧: 用 createImageBitmap + ImageDecoder 若可用, 否则退化为单帧
+    if('ImageDecoder' in window && file.type==='image/gif'){
+      var dec=new ImageDecoder({data:file, type:'image/gif'});
+      dec.tracks.ready.then(function(){
+        var count=dec.tracks.selectedTrack.frameCount;
+        var n=Math.min(count, MAXFR*4);
+        var seq=[];
+        function step(i){
+          if(i>=n){ finish(frames); return; }
+          dec.decode({frameIndex:i}).then(function(r){
+            drawToFrames(r.image, frames, ctx);
+            step(i+1);
+          }).catch(function(){ finish(frames); });
+        }
+        step(0);
+      }).catch(function(){ singleFrame(img, frames, ctx, finish); });
+    } else {
+      singleFrame(img, frames, ctx, finish);
+    }
+    function finish(fr){ URL.revokeObjectURL(url); cb(fr); }
+  };
+  img.onerror=function(){ upMsg.textContent='图片加载失败'; };
+  img.src=url;
+}
+
+function singleFrame(img, frames, ctx, cb){
+  drawToFrames(img, frames, ctx);
+  cb(frames);
+}
+
+function drawToFrames(src, frames, ctx){
+  // 等比缩放到宽27
+  var w=src.width||src.naturalWidth, h=src.height||src.naturalHeight;
+  if(!w||!h) return;
+  var th=Math.max(1, Math.round(h*(COLS/w)));
+  ctx.canvas.width=COLS; ctx.canvas.height=th;
+  ctx.drawImage(src,0,0,COLS,th);
+  // 取中5行
+  var top=Math.max(0, Math.floor((th-ROWS)/2));
+  var imgData=ctx.getImageData(0,top,COLS,Math.min(ROWS,th-top));
+  var fbuf=new Uint8Array(COLS);
+  var t=parseInt(thr.value,10);
+  for(var c=0;c<COLS;c++){
+    var byte=0;
+    for(var r=0;r<ROWS;r++){
+      var idx=(r*COLS+c)*4;
+      var lum=(imgData.data[idx]*0.299+imgData.data[idx+1]*0.587+imgData.data[idx+2]*0.114);
+      if(lum>=t) byte|=(1<<r);
+    }
+    fbuf[c]=byte;
+  }
+  frames.push(fbuf);
+}
+
+function renderPreview(){
+  if(!gifFrames||!gifFrames.length){ preview.innerHTML=''; return; }
+  preview.innerHTML='';
+  gifFrames.slice(0,12).forEach(function(fr){
+    var box=document.createElement('div');
+    box.style.textAlign='center';
+    var cv=document.createElement('canvas');
+    cv.width=COLS*4; cv.height=ROWS*4;
+    var c=cv.getContext('2d');
+    c.fillStyle='#200'; c.fillRect(0,0,cv.width,cv.height);
+    c.fillStyle='#f33';
+    for(var col=0;col<COLS;col++){
+      for(var row=0;row<ROWS;row++){
+        if(fr[col]&(1<<row)) c.fillRect(col*4,row*4,4,4);
+      }
+    }
+    box.appendChild(cv);
+    preview.appendChild(box);
+  });
+  if(gifFrames.length>12){
+    var more=document.createElement('div');
+    more.style.alignSelf='flex-end';
+    more.textContent='…共'+gifFrames.length+'帧';
+    preview.appendChild(more);
+  }
+}
+
+function buildBin(){
+  // 抽帧到 MAXFR
+  var fr=gifFrames;
+  if(fr.length>MAXFR){
+    var step=fr.length/MAXFR, out=[];
+    for(var i=0;i<MAXFR;i++) out.push(fr[Math.floor(i*step)]);
+    fr=out;
+  }
+  var buf=new Uint8Array(fr.length*COLS);
+  for(var i=0;i<fr.length;i++) buf.set(fr[i], i*COLS);
+  return buf;
+}
+
+gifInput.addEventListener('change', function(){
+  var f=gifInput.files&&gifInput.files[0];
+  if(!f){ return; }
+  upMsg.textContent='解析中…';
+  loadGifFrames(f, function(frames){
+    gifFrames=frames;
+    if(!frames.length){ upMsg.textContent='无法解析该图片'; return; }
+    renderPreview();
+    upMsg.textContent='已解析 '+frames.length+' 帧';
+    if(!binName.value) binName.value=(f.name.replace(/\.[^.]+$/, '')+'.bin').toLowerCase();
+  });
+});
+
+upBtn.addEventListener('click', function(){
+  if(!gifFrames||!gifFrames.length){ upMsg.textContent='请先选择图片'; return; }
+  var name=(binName.value||'').trim();
+  if(!name.endsWith('.bin')) name+='.bin';
+  if(!/^[%w_%._-]+%.bin$/.test(name)){ upMsg.textContent='文件名须为 xxx.bin 且不含特殊字符'; return; }
+  var buf=buildBin();
+  // 转 base64 (浏览器原生)
+  var bin='';
+  var bytes=Array.from(buf);
+  var chunk;
+  for(var i=0;i<bytes.length;i+=0x8000){
+    chunk=bytes.slice(i,i+0x8000);
+    bin+=String.fromCharCode.apply(null, chunk);
+  }
+  var b64=btoa(bin);
+  upMsg.textContent='上传中…';
+  var fd='name='+encodeURIComponent(name)+'&data='+encodeURIComponent(b64);
+  fetch(URL_UPLOAD, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: fd })
+    .then(function(r){return r.json();})
+    .then(function(j){
+      if(j&&j.ok){ upMsg.textContent='已上传 '+name+' ('+(buf.length/COLS)+' 帧)'; refreshAnimList(); }
+      else { upMsg.textContent='上传失败：'+(j&&j.msg?j.msg:'未知'); }
+    })
+    .catch(function(e){ upMsg.textContent='上传出错：'+e; });
+});
+
+function refreshAnimList(){
+  fetch(URL_LIST).then(function(r){return r.json();}).then(function(j){
+    if(!j||!j.files) return;
+    animList.innerHTML='<b>已上传动画：</b> '+j.files.join('、');
+    // 同步到上方映射表下拉
+    var sel=document.querySelectorAll('#petTbl select');
+    j.files.forEach(function(fn){
+      sel.forEach(function(s){
+        if(!s.querySelector('option[value="'+fn+'"]')){
+          var o=document.createElement('option'); o.value=fn; o.textContent=fn; s.appendChild(o);
+        }
+      });
+    });
+  }).catch(function(){});
+}
+refreshAnimList();
 </script>
 <%+footer%>
