@@ -27,6 +27,7 @@ mod monitor;
 mod mqtt;
 mod net_agent;
 mod scheduler;
+mod states;
 mod sun;
 
 use anyhow::{Context, Result};

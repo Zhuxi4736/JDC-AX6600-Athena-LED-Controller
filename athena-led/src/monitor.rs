@@ -52,6 +52,8 @@ pub struct SystemMonitor {
     known_macs: HashSet<String>,
     arp_initialized: bool,
     last_arp_check: Option<Instant>,
+    // 🌟 [v2.7.0] 公网 IP 上次记录 (pub_ip_changed 用)
+    last_pub_ip: Option<String>,
 }
 
 impl SystemMonitor {
@@ -89,6 +91,7 @@ impl SystemMonitor {
             known_macs: HashSet::new(),
             arp_initialized: false,
             last_arp_check: None,
+            last_pub_ip: None,
         }
     }
 
@@ -748,6 +751,140 @@ fn format_bytes_total(bytes: u64) -> String {
 // ==========================================
 // 🧪 单元测试
 // ==========================================
+// ---------------- 🌟 [v2.7.0 状态机] 数值版 getter (供 states.rs 触发评估) ----------------
+
+/// CPU 使用率 (0-100 浮点)
+pub fn get_cpu_usage(&mut self) -> f64 {
+    let (curr_total, curr_idle) = self.read_cpu_stats();
+    let diff_total = curr_total.saturating_sub(self.last_cpu_total);
+    let diff_idle = curr_idle.saturating_sub(self.last_cpu_idle);
+    self.last_cpu_total = curr_total;
+    self.last_cpu_idle = curr_idle;
+    if diff_total == 0 { return 0.0; }
+    100.0 * (1.0 - (diff_idle as f64 / diff_total as f64))
+}
+
+/// 内存使用率 (0-100 浮点)
+pub fn get_mem_usage(&self) -> f64 {
+    let content = fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    let mut total = 0.0;
+    let mut available = 0.0;
+    for line in content.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 2 { continue; }
+        match parts[0] {
+            "MemTotal:" => total = parts[1].parse().unwrap_or(0.0),
+            "MemAvailable:" => available = parts[1].parse().unwrap_or(0.0),
+            _ => {}
+        }
+    }
+    if total > 0.0 { 100.0 * (1.0 - (available / total)) } else { 0.0 }
+}
+
+/// 1 分钟平均负载 (浮点)
+pub fn get_load_avg(&self) -> f64 {
+    let content = fs::read_to_string("/proc/loadavg").unwrap_or_default();
+    let parts: Vec<&str> = content.split_whitespace().collect();
+    parts.first().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0)
+}
+
+/// 最高温度 (℃ 浮点, 取所有传感器最大值)
+pub fn get_max_temp(&self) -> f64 {
+    // args.temp_sensors 在调度器侧传入, 这里直接扫 hwmon 取最高
+    let mut max = f64::MIN;
+    if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+        for e in entries.flatten() {
+            let tp = e.path().join("temp");
+            if let Ok(s) = fs::read_to_string(&tp) {
+                if let Ok(raw) = s.trim().parse::<i32>() {
+                    let c = raw as f64 / 1000.0;
+                    if c > max { max = c; }
+                }
+            }
+        }
+    }
+    if max == f64::MIN { 0.0 } else { max }
+}
+
+/// 上行速率 (Mbps)
+pub fn get_tx_speed_mbps(&mut self) -> f64 {
+    let (curr_rx, curr_tx) = self.read_net_bytes_for(&self.net_interface);
+    let now = Instant::now();
+    let (last_rx, last_tx, last_time) = self.net_speed_cache
+        .entry(self.net_interface.clone())
+        .or_insert((curr_rx, curr_tx, now));
+    let duration = now.duration_since(*last_time).as_secs_f64();
+    if duration < 0.1 || duration > 30.0 || *last_rx == 0 {
+        self.net_speed_cache.insert(self.net_interface.clone(), (curr_rx, curr_tx, now));
+        return 0.0;
+    }
+    let speed = (curr_tx.saturating_sub(*last_tx)) as f64 / duration;
+    self.net_speed_cache.insert(self.net_interface.clone(), (curr_rx, curr_tx, now));
+    speed * 8.0 / 1_000_000.0
+}
+
+/// 下行速率 (Mbps)
+pub fn get_rx_speed_mbps(&mut self) -> f64 {
+    let (curr_rx, curr_tx) = self.read_net_bytes_for(&self.net_interface);
+    let now = Instant::now();
+    let (last_rx, last_tx, last_time) = self.net_speed_cache
+        .entry(self.net_interface.clone())
+        .or_insert((curr_rx, curr_tx, now));
+    let duration = now.duration_since(*last_time).as_secs_f64();
+    if duration < 0.1 || duration > 30.0 || *last_rx == 0 {
+        self.net_speed_cache.insert(self.net_interface.clone(), (curr_rx, curr_tx, now));
+        return 0.0;
+    }
+    let speed = (curr_rx.saturating_sub(*last_rx)) as f64 / duration;
+    self.net_speed_cache.insert(self.net_interface.clone(), (curr_rx, curr_tx, now));
+    speed * 8.0 / 1_000_000.0
+}
+
+/// WAN 是否断开
+pub fn wan_down(&self) -> bool {
+    // 通过默认路由是否存在判断
+    let content = fs::read_to_string("/proc/net/route").unwrap_or_default();
+    for line in content.lines().skip(1) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() > 3 && parts[1] == "00000000" && parts[3].starts_with("0000") {
+            return false; // 有默认路由
+        }
+    }
+    true
+}
+
+/// 指定 MAC 是否在线 (查 /proc/net/arp)
+pub fn device_online(&self, mac: &str) -> bool {
+    let content = fs::read_to_string("/proc/net/arp").unwrap_or_default();
+    let m = mac.to_uppercase();
+    content.lines().skip(1).any(|l| l.to_uppercase().contains(&m))
+}
+
+/// 公网 IP 是否变化 (与上次记录比对, 首次false)
+pub fn pub_ip_changed(&mut self) -> bool {
+    let cur = self.read_pub_ip_cached();
+    if cur.is_empty() { return false; }
+    let changed = match &self.last_pub_ip {
+        Some(p) => p != &cur,
+        None => false,
+    };
+    self.last_pub_ip = Some(cur);
+    changed
+}
+
+fn read_pub_ip_cached(&self) -> String {
+    // 复用 net_agent 的缓存逻辑较复杂, 这里简单读 ipinfo (失败返回空, 不阻断)
+    // 实际由 net_agent 后台刷新, 调度器会从 net_agent 取; 此方法作兜底直查
+    std::process::Command::new("sh")
+        .arg("-c")
+        .arg("curl -s --max-time 2 ifconfig.me 2>/dev/null || echo")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
