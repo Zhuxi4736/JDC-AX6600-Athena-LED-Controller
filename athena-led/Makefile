@@ -60,6 +60,8 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_BIN) ./files/athena-pet-relay $(1)/etc/init.d/athena-pet-relay
 	$(INSTALL_DIR) $(1)/etc/athena_led
 	$(INSTALL_CONF) ./files/pet.json $(1)/etc/athena_led/pet.json
+	# 🌟 [v2.7.0] 状态机默认配置 (存在即启用状态机模式; 缺失则走旧 profile 轮播兜底)
+	$(INSTALL_CONF) ./files/states.json $(1)/etc/athena_led/states.json
 
 	# 4. UCI 配置文件
 	$(INSTALL_DIR) $(1)/etc/config

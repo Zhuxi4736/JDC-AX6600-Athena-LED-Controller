@@ -1,0 +1,478 @@
+    Updating `ustc` index
+ Downloading crates ...
+  Downloaded aho-corasick v1.1.4 (registry `ustc`)
+  Downloaded anstream v0.6.18 (registry `ustc`)
+  Downloaded anstyle v1.0.10 (registry `ustc`)
+  Downloaded anstyle-query v1.1.2 (registry `ustc`)
+  Downloaded anstyle-parse v0.2.6 (registry `ustc`)
+  Downloaded anstyle-wincon v3.0.6 (registry `ustc`)
+  Downloaded anyhow v1.0.93 (registry `ustc`)
+  Downloaded base64 v0.21.7 (registry `ustc`)
+  Downloaded autocfg v1.4.0 (registry `ustc`)
+  Downloaded cfg-if v1.0.0 (registry `ustc`)
+  Downloaded bytes v1.8.0 (registry `ustc`)
+  Downloaded cc v1.2.1 (registry `ustc`)
+  Downloaded chrono v0.4.38 (registry `ustc`)
+  Downloaded clap_builder v4.5.21 (registry `ustc`)
+  Downloaded clap_derive v4.5.18 (registry `ustc`)
+  Downloaded clap v4.5.21 (registry `ustc`)
+  Downloaded encoding_rs v0.8.35 (registry `ustc`)
+  Downloaded clap_lex v0.7.3 (registry `ustc`)
+  Downloaded colorchoice v1.0.3 (registry `ustc`)
+  Downloaded displaydoc v0.2.5 (registry `ustc`)
+  Downloaded fnv v1.0.7 (registry `ustc`)
+  Downloaded equivalent v1.0.1 (registry `ustc`)
+  Downloaded icu_locid v1.5.0 (registry `ustc`)
+  Downloaded futures-sink v0.3.31 (registry `ustc`)
+  Downloaded form_urlencoded v1.2.1 (registry `ustc`)
+  Downloaded futures-core v0.3.31 (registry `ustc`)
+  Downloaded futures-channel v0.3.31 (registry `ustc`)
+  Downloaded futures-task v0.3.31 (registry `ustc`)
+  Downloaded futures-util v0.3.31 (registry `ustc`)
+  Downloaded flume v0.11.1 (registry `ustc`)
+  Downloaded getrandom v0.2.15 (registry `ustc`)
+  Downloaded h2 v0.3.26 (registry `ustc`)
+  Downloaded icu_normalizer_data v1.5.0 (registry `ustc`)
+  Downloaded icu_locid_transform v1.5.0 (registry `ustc`)
+  Downloaded icu_locid_transform_data v1.5.0 (registry `ustc`)
+  Downloaded icu_normalizer v1.5.0 (registry `ustc`)
+  Downloaded hashbrown v0.15.2 (registry `ustc`)
+  Downloaded icu_properties v1.5.1 (registry `ustc`)
+  Downloaded icu_provider v1.5.0 (registry `ustc`)
+  Downloaded icu_properties_data v1.5.0 (registry `ustc`)
+  Downloaded idna_adapter v1.2.0 (registry `ustc`)
+  Downloaded icu_provider_macros v1.5.0 (registry `ustc`)
+  Downloaded ipnet v2.10.1 (registry `ustc`)
+  Downloaded itoa v1.0.14 (registry `ustc`)
+  Downloaded is_terminal_polyfill v1.70.1 (registry `ustc`)
+  Downloaded lock_api v0.4.14 (registry `ustc`)
+  Downloaded mime v0.3.17 (registry `ustc`)
+  Downloaded percent-encoding v2.3.1 (registry `ustc`)
+  Downloaded heck v0.5.0 (registry `ustc`)
+  Downloaded pin-project-lite v0.2.15 (registry `ustc`)
+  Downloaded litemap v0.7.4 (registry `ustc`)
+  Downloaded quote v1.0.37 (registry `ustc`)
+  Downloaded indexmap v2.6.0 (registry `ustc`)
+  Downloaded num-traits v0.2.19 (registry `ustc`)
+  Downloaded pin-utils v0.1.0 (registry `ustc`)
+  Downloaded idna v1.0.3 (registry `ustc`)
+  Downloaded httparse v1.9.5 (registry `ustc`)
+  Downloaded http v0.2.12 (registry `ustc`)
+  Downloaded mio v1.0.2 (registry `ustc`)
+  Downloaded rustls-native-certs v0.7.3 (registry `ustc`)
+  Downloaded log v0.4.22 (registry `ustc`)
+  Downloaded http-body v0.4.6 (registry `ustc`)
+  Downloaded strsim v0.11.1 (registry `ustc`)
+  Downloaded regex v1.12.3 (registry `ustc`)
+  Downloaded memchr v2.7.4 (registry `ustc`)
+  Downloaded once_cell v1.20.2 (registry `ustc`)
+  Downloaded rustls-pki-types v1.15.0 (registry `ustc`)
+  Downloaded rustls-pemfile v1.0.4 (registry `ustc`)
+  Downloaded rustls-pemfile v2.2.0 (registry `ustc`)
+  Downloaded reqwest v0.11.27 (registry `ustc`)
+  Downloaded proc-macro2 v1.0.92 (registry `ustc`)
+  Downloaded rumqttc v0.24.0 (registry `ustc`)
+  Downloaded scopeguard v1.2.0 (registry `ustc`)
+  Downloaded synstructure v0.13.1 (registry `ustc`)
+  Downloaded httpdate v1.0.3 (registry `ustc`)
+  Downloaded try-lock v0.2.5 (registry `ustc`)
+  Downloaded hyper v0.14.31 (registry `ustc`)
+  Downloaded smallvec v1.13.2 (registry `ustc`)
+  Downloaded hyper-rustls v0.24.2 (registry `ustc`)
+  Downloaded rustls v0.21.12 (registry `ustc`)
+  Downloaded regex-syntax v0.8.9 (registry `ustc`)
+  Downloaded rustls v0.22.4 (registry `ustc`)
+  Downloaded regex-automata v0.4.14 (registry `ustc`)
+  Downloaded utf8parse v0.2.2 (registry `ustc`)
+  Downloaded utf16_iter v1.0.5 (registry `ustc`)
+  Downloaded stable_deref_trait v1.2.0 (registry `ustc`)
+  Downloaded shlex v1.3.0 (registry `ustc`)
+  Downloaded writeable v0.5.5 (registry `ustc`)
+  Downloaded thiserror-impl v1.0.69 (registry `ustc`)
+  Downloaded tokio-rustls v0.25.0 (registry `ustc`)
+  Downloaded yoke-derive v0.7.5 (registry `ustc`)
+  Downloaded icu_collections v1.5.0 (registry `ustc`)
+  Downloaded serde v1.0.215 (registry `ustc`)
+  Downloaded rustls-webpki v0.101.7 (registry `ustc`)
+  Downloaded serde_json v1.0.133 (registry `ustc`)
+  Downloaded thiserror v1.0.69 (registry `ustc`)
+  Downloaded tokio-util v0.7.12 (registry `ustc`)
+  Downloaded ring v0.17.8 (registry `ustc`)
+  Downloaded winreg v0.50.0 (registry `ustc`)
+  Downloaded serde_derive v1.0.215 (registry `ustc`)
+  Downloaded untrusted v0.9.0 (registry `ustc`)
+  Downloaded subtle v2.6.1 (registry `ustc`)
+  Downloaded tower-service v0.3.3 (registry `ustc`)
+  Downloaded zerovec-derive v0.10.3 (registry `ustc`)
+  Downloaded url v2.5.4 (registry `ustc`)
+  Downloaded windows-sys v0.61.2 (registry `ustc`)
+  Downloaded zerofrom v0.1.5 (registry `ustc`)
+  Downloaded webpki-roots v0.25.4 (registry `ustc`)
+  Downloaded rustls-webpki v0.102.8 (registry `ustc`)
+  Downloaded windows-sys v0.48.0 (registry `ustc`)
+  Downloaded windows-link v0.2.1 (registry `ustc`)
+  Downloaded want v0.3.1 (registry `ustc`)
+  Downloaded windows-targets v0.48.5 (registry `ustc`)
+  Downloaded serde_urlencoded v0.7.1 (registry `ustc`)
+  Downloaded sct v0.7.1 (registry `ustc`)
+  Downloaded yoke v0.7.5 (registry `ustc`)
+  Downloaded syn v2.0.89 (registry `ustc`)
+  Downloaded tinystr v0.7.6 (registry `ustc`)
+  Downloaded tracing v0.1.40 (registry `ustc`)
+  Downloaded tokio-rustls v0.24.1 (registry `ustc`)
+  Downloaded tracing-core v0.1.33 (registry `ustc`)
+  Downloaded zeroize v1.9.0 (registry `ustc`)
+  Downloaded schannel v0.1.29 (registry `ustc`)
+  Downloaded utf8_iter v1.0.4 (registry `ustc`)
+  Downloaded windows_x86_64_msvc v0.48.5 (registry `ustc`)
+  Downloaded windows_x86_64_msvc v0.52.6 (registry `ustc`)
+  Downloaded socket2 v0.5.7 (registry `ustc`)
+  Downloaded spin v0.9.8 (registry `ustc`)
+  Downloaded zerofrom-derive v0.1.5 (registry `ustc`)
+  Downloaded write16 v1.0.0 (registry `ustc`)
+  Downloaded zerovec v0.10.4 (registry `ustc`)
+  Downloaded windows-targets v0.52.6 (registry `ustc`)
+  Downloaded unicode-ident v1.0.14 (registry `ustc`)
+  Downloaded tokio-macros v2.4.0 (registry `ustc`)
+  Downloaded tokio v1.41.1 (registry `ustc`)
+  Downloaded windows-sys v0.59.0 (registry `ustc`)
+  Downloaded windows-sys v0.52.0 (registry `ustc`)
+  Downloaded sync_wrapper v0.1.2 (registry `ustc`)
+  Downloaded ryu v1.0.18 (registry `ustc`)
+  Downloaded slab v0.4.9 (registry `ustc`)
+   Compiling proc-macro2 v1.0.92
+   Compiling unicode-ident v1.0.14
+   Compiling windows_x86_64_msvc v0.52.6
+   Compiling shlex v1.3.0
+    Checking cfg-if v1.0.0
+    Checking scopeguard v1.2.0
+    Checking stable_deref_trait v1.2.0
+   Compiling autocfg v1.4.0
+    Checking pin-project-lite v0.2.15
+    Checking getrandom v0.2.15
+    Checking lock_api v0.4.14
+    Checking bytes v1.8.0
+    Checking untrusted v0.9.0
+   Compiling cc v1.2.1
+    Checking writeable v0.5.5
+    Checking futures-core v0.3.31
+    Checking litemap v0.7.4
+    Checking spin v0.9.8
+    Checking itoa v1.0.14
+    Checking futures-sink v0.3.31
+   Compiling slab v0.4.9
+    Checking zeroize v1.9.0
+    Checking log v0.4.22
+    Checking icu_locid_transform_data v1.5.0
+   Compiling windows_x86_64_msvc v0.48.5
+    Checking futures-task v0.3.31
+    Checking rustls-pki-types v1.15.0
+    Checking icu_properties_data v1.5.0
+    Checking pin-utils v0.1.0
+   Compiling serde v1.0.215
+    Checking once_cell v1.20.2
+    Checking fnv v1.0.7
+    Checking http v0.2.12
+    Checking tracing-core v0.1.33
+    Checking windows-targets v0.52.6
+    Checking icu_normalizer_data v1.5.0
+   Compiling rustls v0.21.12
+    Checking windows-sys v0.52.0
+    Checking windows-sys v0.59.0
+    Checking futures-util v0.3.31
+    Checking memchr v2.7.4
+    Checking write16 v1.0.0
+   Compiling quote v1.0.37
+    Checking utf8_iter v1.0.4
+    Checking hashbrown v0.15.2
+   Compiling syn v2.0.89
+    Checking smallvec v1.13.2
+    Checking equivalent v1.0.1
+   Compiling httparse v1.9.5
+    Checking utf16_iter v1.0.5
+    Checking tracing v0.1.40
+    Checking indexmap v2.6.0
+    Checking try-lock v0.2.5
+    Checking percent-encoding v2.3.1
+    Checking windows-link v0.2.1
+    Checking anstyle v1.0.10
+    Checking utf8parse v0.2.2
+   Compiling rustls v0.22.4
+    Checking anstyle-parse v0.2.6
+   Compiling ring v0.17.8
+    Checking anstyle-wincon v3.0.6
+    Checking form_urlencoded v1.2.1
+    Checking windows-sys v0.61.2
+    Checking want v0.3.1
+    Checking windows-targets v0.48.5
+    Checking anstyle-query v1.1.2
+    Checking http-body v0.4.6
+   Compiling num-traits v0.2.19
+    Checking futures-channel v0.3.31
+    Checking subtle v2.6.1
+    Checking ryu v1.0.18
+    Checking colorchoice v1.0.3
+    Checking mio v1.0.2
+    Checking socket2 v0.5.7
+   Compiling serde_json v1.0.133
+    Checking is_terminal_polyfill v1.70.1
+    Checking tower-service v0.3.3
+    Checking httpdate v1.0.3
+   Compiling thiserror v1.0.69
+    Checking anstream v0.6.18
+    Checking windows-sys v0.48.0
+    Checking aho-corasick v1.1.4
+    Checking rustls-pemfile v2.2.0
+   Compiling anyhow v1.0.93
+    Checking strsim v0.11.1
+   Compiling heck v0.5.0
+    Checking regex-syntax v0.8.9
+    Checking base64 v0.21.7
+    Checking clap_lex v0.7.3
+    Checking clap_builder v4.5.21
+    Checking rustls-pemfile v1.0.4
+    Checking flume v0.11.1
+    Checking encoding_rs v0.8.35
+    Checking ipnet v2.10.1
+    Checking sync_wrapper v0.1.2
+    Checking mime v0.3.17
+    Checking webpki-roots v0.25.4
+   Compiling synstructure v0.13.1
+    Checking regex-automata v0.4.14
+    Checking sct v0.7.1
+    Checking rustls-webpki v0.101.7
+    Checking rustls-webpki v0.102.8
+   Compiling zerofrom-derive v0.1.5
+   Compiling yoke-derive v0.7.5
+   Compiling zerovec-derive v0.10.3
+   Compiling displaydoc v0.2.5
+   Compiling tokio-macros v2.4.0
+   Compiling icu_provider_macros v1.5.0
+   Compiling serde_derive v1.0.215
+    Checking schannel v0.1.29
+    Checking tokio v1.41.1
+   Compiling thiserror-impl v1.0.69
+    Checking winreg v0.50.0
+   Compiling clap_derive v4.5.18
+    Checking regex v1.12.3
+    Checking rustls-native-certs v0.7.3
+    Checking zerofrom v0.1.5
+    Checking yoke v0.7.5
+    Checking zerovec v0.10.4
+    Checking clap v4.5.21
+    Checking tinystr v0.7.6
+    Checking icu_collections v1.5.0
+    Checking icu_locid v1.5.0
+    Checking icu_provider v1.5.0
+    Checking icu_locid_transform v1.5.0
+    Checking icu_properties v1.5.1
+    Checking tokio-util v0.7.12
+    Checking tokio-rustls v0.24.1
+    Checking tokio-rustls v0.25.0
+    Checking rumqttc v0.24.0
+    Checking h2 v0.3.26
+    Checking icu_normalizer v1.5.0
+    Checking idna_adapter v1.2.0
+    Checking idna v1.0.3
+    Checking serde_urlencoded v0.7.1
+    Checking chrono v0.4.38
+    Checking url v2.5.4
+    Checking hyper v0.14.31
+    Checking hyper-rustls v0.24.2
+    Checking reqwest v0.11.27
+    Checking athena-led v2.7.0 (C:\Users\47362\JDC-AX6600-Athena-LED-Controller\athena-led)
+error: `self` parameter is only allowed in associated functions
+   --> src\monitor.rs:757:22
+    |
+757 | pub fn get_cpu_usage(&mut self) -> f64 {
+    |                      ^^^^^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> src\monitor.rs:768:22
+    |
+768 | pub fn get_mem_usage(&self) -> f64 {
+    |                      ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> src\monitor.rs:785:21
+    |
+785 | pub fn get_load_avg(&self) -> f64 {
+    |                     ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> src\monitor.rs:792:21
+    |
+792 | pub fn get_max_temp(&self) -> f64 {
+    |                     ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> src\monitor.rs:810:26
+    |
+810 | pub fn get_tx_speed_mbps(&mut self) -> f64 {
+    |                          ^^^^^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> src\monitor.rs:827:26
+    |
+827 | pub fn get_rx_speed_mbps(&mut self) -> f64 {
+    |                          ^^^^^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> src\monitor.rs:844:17
+    |
+844 | pub fn wan_down(&self) -> bool {
+    |                 ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> src\monitor.rs:857:22
+    |
+857 | pub fn device_online(&self, mac: &str) -> bool {
+    |                      ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> src\monitor.rs:864:23
+    |
+864 | pub fn pub_ip_changed(&mut self) -> bool {
+    |                       ^^^^^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> src\monitor.rs:875:23
+    |
+875 | fn read_pub_ip_cached(&self) -> String {
+    |                       ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error[E0599]: no method named `write_data_typed` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:302:44
+    |
+302 | ...                   let _ = screen.write_data_typed(text.as_bytes(), led_flag, frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `write_data_typed` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:309:44
+    |
+309 | ...                   let _ = screen.write_data_typed(txt.as_bytes(), led_flag, frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `write_data_typed` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:416:44
+    |
+416 | ...                   let _ = screen.write_data_typed(text.as_bytes(), get_leds(monitor, args), frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `write_data_typed` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:428:44
+    |
+428 | ...                   let _ = screen.write_data_typed(txt.as_bytes(), get_leds(monitor, args), frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `get_cpu_usage` found for mutable reference `&mut SystemMonitor` in the current scope
+   --> src\states.rs:141:32
+    |
+141 |             "cpu" => cmp_val(m.get_cpu_usage(), &self.op, self.val),
+    |                                ^^^^^^^^^^^^^
+    |
+help: there is a method `get_cpu_usage_string` with a similar name
+    |
+141 |             "cpu" => cmp_val(m.get_cpu_usage_string(), &self.op, self.val),
+    |                                             +++++++
+
+error[E0599]: no method named `get_mem_usage` found for mutable reference `&mut SystemMonitor` in the current scope
+   --> src\states.rs:142:32
+    |
+142 |             "mem" => cmp_val(m.get_mem_usage(), &self.op, self.val),
+    |                                ^^^^^^^^^^^^^ method not found in `&mut SystemMonitor`
+
+error[E0599]: no method named `get_load_avg` found for mutable reference `&mut SystemMonitor` in the current scope
+   --> src\states.rs:143:33
+    |
+143 |             "load" => cmp_val(m.get_load_avg(), &self.op, self.val),
+    |                                 ^^^^^^^^^^^^
+    |
+help: there is a method `get_load_string` with a similar name
+    |
+143 -             "load" => cmp_val(m.get_load_avg(), &self.op, self.val),
+143 +             "load" => cmp_val(m.get_load_string(), &self.op, self.val),
+    |
+
+error[E0599]: no method named `get_max_temp` found for mutable reference `&mut SystemMonitor` in the current scope
+   --> src\states.rs:144:33
+    |
+144 |             "temp" => cmp_val(m.get_max_temp(), &self.op, self.val),
+    |                                 ^^^^^^^^^^^^ method not found in `&mut SystemMonitor`
+
+error[E0599]: no method named `get_rx_speed_mbps` found for mutable reference `&mut SystemMonitor` in the current scope
+   --> src\states.rs:146:51
+    |
+146 |                 let v = if self.dir == "down" { m.get_rx_speed_mbps() } else { m.get_tx_speed_mbps() };
+    |                                                   ^^^^^^^^^^^^^^^^^ method not found in `&mut SystemMonitor`
+
+error[E0599]: no method named `get_tx_speed_mbps` found for mutable reference `&mut SystemMonitor` in the current scope
+   --> src\states.rs:146:82
+    |
+146 |                 let v = if self.dir == "down" { m.get_rx_speed_mbps() } else { m.get_tx_speed_mbps() };
+    |                                                                                  ^^^^^^^^^^^^^^^^^ method not found in `&mut SystemMonitor`
+
+error[E0599]: no method named `wan_down` found for mutable reference `&mut SystemMonitor` in the current scope
+   --> src\states.rs:154:24
+    |
+154 |             "wan" => m.wan_down(), // op 忽略，断开即命中
+    |                        ^^^^^^^^ method not found in `&mut SystemMonitor`
+
+error[E0599]: no method named `device_online` found for mutable reference `&mut SystemMonitor` in the current scope
+   --> src\states.rs:157:19
+    |
+157 |                 m.device_online(&self.mac)
+    |                   ^^^^^^^^^^^^^ method not found in `&mut SystemMonitor`
+
+error[E0599]: no method named `pub_ip_changed` found for mutable reference `&mut SystemMonitor` in the current scope
+   --> src\states.rs:163:29
+    |
+163 |             "ipchange" => m.pub_ip_changed(),
+    |                             ^^^^^^^^^^^^^^ method not found in `&mut SystemMonitor`
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `athena-led` (bin "athena-led") due to 23 previous errors

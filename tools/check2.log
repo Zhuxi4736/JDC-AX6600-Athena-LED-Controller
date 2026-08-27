@@ -1,0 +1,66 @@
+    Checking athena-led v2.7.0 (C:\Users\47362\JDC-AX6600-Athena-LED-Controller\athena-led)
+error[E0599]: no method named `write_data_typed` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:302:44
+    |
+302 | ...                   let _ = screen.write_data_typed(text.as_bytes(), led_flag, frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `write_data_typed` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:309:44
+    |
+309 | ...                   let _ = screen.write_data_typed(txt.as_bytes(), led_flag, frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `write_data_typed` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:416:44
+    |
+416 | ...                   let _ = screen.write_data_typed(text.as_bytes(), get_leds(monitor, args), frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `write_data_typed` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:428:44
+    |
+428 | ...                   let _ = screen.write_data_typed(txt.as_bytes(), get_leds(monitor, args), frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `last_tx`
+   --> src\monitor.rs:831:19
+    |
+831 |     let (last_rx, last_tx, last_time) = self.net_speed_cache
+    |                   ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_last_tx`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `args`
+   --> src\states.rs:132:46
+    |
+132 |     fn matches(&self, m: &mut SystemMonitor, args: &Args, signals: &HashMap<String, Instant>) -> bool {
+    |                                              ^^^^ help: if this is intentional, prefix it with an underscore: `_args`
+
+For more information about this error, try `rustc --explain E0599`.
+warning: `athena-led` (bin "athena-led") generated 2 warnings
+error: could not compile `athena-led` (bin "athena-led") due to 4 previous errors; 2 warnings emitted

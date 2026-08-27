@@ -1,0 +1,89 @@
+{
+  "states": [
+    {
+      "id": "idle",
+      "name": "默认·悠闲",
+      "is_default": true,
+      "priority": 0,
+      "persistent": true,
+      "hold_secs": 10,
+      "trigger": null,
+      "substates": [
+        { "content": "module:time", "mode": "static", "speed": 100, "duration": 5, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } },
+        { "content": "module:updl", "mode": "flow", "speed": 80, "duration": 5, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } },
+        { "content": "module:temp", "mode": "static", "speed": 100, "duration": 5, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } }
+      ]
+    },
+    {
+      "id": "night",
+      "name": "夜间·安静",
+      "is_default": false,
+      "priority": 1,
+      "persistent": true,
+      "hold_secs": 10,
+      "trigger": {
+        "logic": "or",
+        "rules": [
+          { "type": "time", "op": "in", "start": "22:30", "end": "07:30" }
+        ]
+      },
+      "substates": [
+        { "content": "pet_idle.bin", "mode": "static", "speed": 100, "duration": 8, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } }
+      ]
+    },
+    {
+      "id": "busy",
+      "name": "高负载·忙",
+      "is_default": false,
+      "priority": 5,
+      "persistent": true,
+      "hold_secs": 10,
+      "trigger": {
+        "logic": "or",
+        "rules": [
+          { "type": "cpu", "op": ">", "val": 80 },
+          { "type": "temp", "op": ">", "val": 70 }
+        ]
+      },
+      "substates": [
+        { "content": "pet_thinking.bin", "mode": "static", "speed": 100, "duration": 4, "leds": { "clock": 1, "medal": 0, "up": 0, "down": 0 } },
+        { "content": "module:cpu", "mode": "type", "speed": 90, "duration": 4, "leds": { "clock": 1, "medal": 0, "up": 0, "down": 0 } }
+      ]
+    },
+    {
+      "id": "download",
+      "name": "下载中",
+      "is_default": false,
+      "priority": 6,
+      "persistent": false,
+      "hold_secs": 20,
+      "trigger": {
+        "logic": "or",
+        "rules": [
+          { "type": "rate", "op": ">", "val": 30, "dir": "down" }
+        ]
+      },
+      "substates": [
+        { "content": "module:updl", "mode": "flow", "speed": 70, "duration": 6, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 1 } }
+      ]
+    },
+    {
+      "id": "doorbell",
+      "name": "有人按门铃",
+      "is_default": false,
+      "priority": 20,
+      "persistent": false,
+      "hold_secs": 15,
+      "trigger": {
+        "logic": "or",
+        "rules": [
+          { "type": "http", "signal": "doorbell" }
+        ]
+      },
+      "substates": [
+        { "content": "pet_wave.bin", "mode": "static", "speed": 100, "duration": 5, "leds": { "clock": 1, "medal": 1, "up": 1, "down": 1 } },
+        { "content": "text:叮咚!", "mode": "type", "speed": 120, "duration": 5, "leds": { "clock": 1, "medal": 1, "up": 1, "down": 1 } }
+      ]
+    }
+  ]
+}

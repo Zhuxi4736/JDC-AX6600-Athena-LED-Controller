@@ -40,6 +40,11 @@ impl LedScreen {
         Ok(())
     }
 
+    pub async fn write_data_typed(&mut self, data: &[u8], flag: u8, _frame_ms: u64) -> Result<()> {
+        // Windows 模拟: 与 write_data 同样回显即可 (无逐字动画效果)
+        self.write_data(data, flag).await
+    }
+
     pub async fn play_animation(&mut self, file_name: &str, duration_secs: u64, status: u8) -> Result<()> {
         println!("🎬 [虚拟屏幕 | 状态灯:{}] 开始模拟播放动画: {} (时长: {}秒)", status, file_name, duration_secs);
 

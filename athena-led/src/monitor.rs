@@ -753,6 +753,7 @@ fn format_bytes_total(bytes: u64) -> String {
 // ==========================================
 // ---------------- 🌟 [v2.7.0 状态机] 数值版 getter (供 states.rs 触发评估) ----------------
 
+impl SystemMonitor {
 /// CPU 使用率 (0-100 浮点)
 pub fn get_cpu_usage(&mut self) -> f64 {
     let (curr_total, curr_idle) = self.read_cpu_stats();
@@ -884,6 +885,8 @@ fn read_pub_ip_cached(&self) -> String {
         .map(|s| s.trim().to_string())
         .unwrap_or_default()
 }
+
+} // impl SystemMonitor (v2.7.0 getter 块结束)
 
 #[cfg(test)]
 mod tests {
