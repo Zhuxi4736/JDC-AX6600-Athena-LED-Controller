@@ -6,39 +6,39 @@ local url_stat = luci.dispatcher.build_url("admin","services","athena_led","stat
 %>
 <%+header%>
 <div class="cbi-map">
-<h2>Athena LED — 🐾 Virtual Pet (AI Mood)</h2>
-<p class="cbi-section-descr">Map AI agent states (sent via HTTP <code>/pet/&lt;state&gt;</code> on LAN :8080) to LED expressions. Save writes <code>/etc/athena_led/pet.json</code> and reloads the service. No command line needed.</p>
+<h2>Athena LED — 🐾 虚拟宠物（AI 心情屏）</h2>
+<p class="cbi-section-descr">将 AI 助手的状态（通过局域网 :8080 发送 HTTP <code>/pet/&lt;状态名&gt;</code>）映射为点阵屏表情。保存即写入 <code>/etc/athena_led/pet.json</code> 并重启服务，全程无需命令行。</p>
 
 <div id="statusBox" class="cbi-section">
-  <b>Service:</b> <span id="st">checking…</span>
+  <b>核心服务状态：</b> <span id="st">检测中…</span>
 </div>
 
 <div class="cbi-section">
-  <h3>Enable Athena LED core service</h3>
-  <p>If the screen stays dark, enable the core service here (writes <code>enabled 1</code> to /etc/config/athena_led and starts it).</p>
-  <button class="cbi-button cbi-button-apply" id="enBtn">Enable &amp; Start</button>
+  <h3>启用 Athena LED 核心服务</h3>
+  <p>若屏幕不亮，请先在此启用核心服务（向 /etc/config/athena_led 写入 <code>enabled 1</code> 并启动它）。</p>
+  <button class="cbi-button cbi-button-apply" id="enBtn">启用并启动</button>
 </div>
 
 <div class="cbi-section">
-  <h3>State → Expression Map</h3>
-  <p>Each row: a state name (sent by your AI agent) + what the 27×5 LED shows. Add as many as you like — GIF animations, live CPU/up-down, clock, or custom text.</p>
+  <h3>状态 → 表情映射表</h3>
+  <p>每一行：一个状态名（由你的 AI 助手发送）+ 点阵屏（27×5）显示的内容。可任意增删——支持 GIF 动画、实时 CPU/上下行、时钟或自定义文字。</p>
   <table id="petTbl" style="width:100%;border-collapse:collapse">
     <thead><tr>
-      <th style="text-align:left;width:30%">State name</th>
-      <th style="text-align:left;width:60%">Screen shows</th>
+      <th style="text-align:left;width:30%">状态名</th>
+      <th style="text-align:left;width:60%">屏幕显示</th>
       <th style="text-align:left;width:10%"></th>
     </tr></thead>
     <tbody></tbody>
   </table>
-  <button class="cbi-button cbi-button-add" id="addBtn">+ Add state</button>
-  <button class="cbi-button cbi-button-apply" id="saveBtn" style="margin-left:8px">Save Pet Map &amp; Reload</button>
+  <button class="cbi-button cbi-button-add" id="addBtn">+ 添加状态</button>
+  <button class="cbi-button cbi-button-apply" id="saveBtn" style="margin-left:8px">保存映射并重启</button>
   <pre id="msg" style="white-space:pre-wrap"></pre>
 </div>
 </div>
 
 <script type="text/javascript">
-var PET_ANIM = ['pet_thinking.bin','pet_run.bin','pet_wave.bin','pet_jump.bin','pet_failed.bin','pet_love.bin','pet_waiting.bin','pet_idle.bin'];
-var PET_MODS = [['cpu','CPU load %'],['updl','Up/Down speed'],['mem','Memory %'],['load','System load'],['time','Clock']];
+var PET_ANIM = [['pet_thinking.bin','思考中'],['pet_run.bin','奔跑'],['pet_wave.bin','招手'],['pet_jump.bin','跳跃'],['pet_failed.bin','失败/报错'],['pet_love.bin','爱心'],['pet_waiting.bin','等待'],['pet_idle.bin','待机']];
+var PET_MODS = [['cpu','CPU 占用率 %'],['updl','实时上下行速率'],['mem','内存占用率 %'],['load','系统负载'],['time','时钟']];
 var PET_DEF = [['thinking','pet_thinking.bin'],['run','pet_run.bin'],['wave','pet_wave.bin'],['jump','pet_jump.bin'],['failed','pet_failed.bin'],['love','pet_love.bin'],['waiting','pet_waiting.bin'],['idle','time']];
 var URL_LOAD='<%=url_load%>';
 var URL_SAVE='<%=url_save%>';
@@ -49,14 +49,14 @@ var tbody = document.querySelector('#petTbl tbody');
 function addRow(sv,dv){
   var tr=document.createElement('tr');
   var td1=document.createElement('td'); td1.style.padding='2px';
-  var si=document.createElement('input'); si.className='cbi-input-text'; si.style.width='100%'; si.placeholder='e.g. thinking'; if(sv) si.value=sv;
+  var si=document.createElement('input'); si.className='cbi-input-text'; si.style.width='100%'; si.placeholder='例如 thinking'; if(sv) si.value=sv;
   td1.appendChild(si);
   var td2=document.createElement('td'); td2.style.padding='2px';
   var sel=document.createElement('select'); sel.className='cbi-input-select'; sel.style.width='100%';
-  PET_ANIM.forEach(function(b){ var o=document.createElement('option'); o.value=b; o.textContent=b; sel.appendChild(o); });
+  PET_ANIM.forEach(function(b){ var o=document.createElement('option'); o.value=b[0]; o.textContent=b[1]+' ('+b[0]+')'; sel.appendChild(o); });
   PET_MODS.forEach(function(m){ var o=document.createElement('option'); o.value=m[0]; o.textContent=m[1]; sel.appendChild(o); });
-  var ot=document.createElement('option'); ot.value='__text'; ot.textContent='Custom text'; sel.appendChild(ot);
-  var ti=document.createElement('input'); ti.className='cbi-input-text'; ti.style.width='100%'; ti.placeholder='text to show';
+  var ot=document.createElement('option'); ot.value='__text'; ot.textContent='自定义文字'; sel.appendChild(ot);
+  var ti=document.createElement('input'); ti.className='cbi-input-text'; ti.style.width='100%'; ti.placeholder='要显示的文字';
   var isText = dv && !PET_ANIM.indexOf && PET_ANIM.indexOf(dv)<0 && PET_MODS.map(function(x){return x[0]}).indexOf(dv)<0;
   if(dv){ if(isText){ sel.value='__text'; ti.value=dv; } else { sel.value=dv; } }
   ti.style.display = isText ? 'inline-block' : 'none';
@@ -64,7 +64,7 @@ function addRow(sv,dv){
   var wrap=document.createElement('div'); wrap.appendChild(sel); wrap.appendChild(ti);
   td2.appendChild(wrap);
   var td3=document.createElement('td'); td3.style.padding='2px';
-  var del=document.createElement('button'); del.className='cbi-button cbi-button-remove'; del.textContent='Remove';
+  var del=document.createElement('button'); del.className='cbi-button cbi-button-remove'; del.textContent='删除';
   del.addEventListener('click', function(ev){ ev.preventDefault(); tbody.removeChild(tr); });
   td3.appendChild(del);
   tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
@@ -98,21 +98,21 @@ document.getElementById('saveBtn').addEventListener('click', function(ev){
     if(k && v) map[k]=v;
   });
   var msg=document.getElementById('msg');
-  if(!Object.keys(map).length){ msg.textContent='No valid rows to save.'; return; }
+  if(!Object.keys(map).length){ msg.textContent='没有有效的行可保存。'; return; }
   post(URL_SAVE, {data: JSON.stringify(map)}, function(j){
-    if(j && j.ok){ msg.textContent='Saved & service reloaded.'; }
-    else { msg.textContent='Save failed: '+(j&&j.msg?j.msg:'unknown'); }
+    if(j && j.ok){ msg.textContent='已保存，服务已重启。'; }
+    else { msg.textContent='保存失败：'+(j&&j.msg?j.msg:'未知错误'); }
   });
 });
 document.getElementById('enBtn').addEventListener('click', function(ev){
   ev.preventDefault();
-  post(URL_EN, {enabled:'1'}, function(j){ if(j&&j.ok){ document.getElementById('st').textContent='enabled, restarting…'; refreshStatus(); } });
+  post(URL_EN, {enabled:'1'}, function(j){ if(j&&j.ok){ document.getElementById('st').textContent='已启用，正在重启…'; refreshStatus(); } });
 });
 function refreshStatus(){
   fetch(URL_STAT).then(function(r){return r.json();}).then(function(j){
     document.getElementById('st').innerHTML = j.running
-      ? '<span style="color:green;font-weight:bold">RUNNING</span> | PID: '+j.pid
-      : '<span style="color:red;font-weight:bold">NOT RUNNING</span>';
+      ? '<span style="color:green;font-weight:bold">运行中</span> | PID: '+j.pid
+      : '<span style="color:red;font-weight:bold">未运行</span>';
   }).catch(function(){});
 }
 refreshStatus(); setInterval(refreshStatus, 5000);
