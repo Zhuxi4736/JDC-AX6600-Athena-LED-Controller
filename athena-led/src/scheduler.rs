@@ -334,6 +334,8 @@ pub async fn process_loop(
                     }
                 }
                 if pet_interrupted && *rx.borrow() < 0 { break; }
+                // 🌟 [v2.6.1] 预览/宠物播完后回到轮播起点 (默认=时间模块), 而非接着当前轮播位
+                module_idx = 0;
                 // 宠物播放完毕，继续渲染当前模块
             }
 

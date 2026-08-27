@@ -196,6 +196,8 @@ function act_pet_preview()
         return
     end
     local port = uci:get("athena_led", "general", "control_port") or "8377"
+    local mode = http.formvalue("mode") or ""
+    local speed = tonumber(http.formvalue("speed") or "0") or 0
     if spec == "__stop__" then
         -- 停止预览: 发 home 指令让调度器回到轮播首页
         local out = sys.exec(string.format('echo "home" | nc 127.0.0.1 %s', port))
@@ -212,9 +214,11 @@ function act_pet_preview()
             disp = "text:" .. disp
         end
     end
-    local out = sys.exec(string.format('echo "showraw %s %d" | nc 127.0.0.1 %s', disp, secs, port))
+    -- 🌟 [v2.6.1] 透传 mode/speed 给 showraw (static/type/flow, 帧间隔ms)
+    local cmd = string.format('showraw %s %d %s %d', disp, secs, mode, speed)
+    local out = sys.exec(string.format('echo "%s" | nc 127.0.0.1 %s', cmd, port))
     http.prepare_content("application/json")
-    http.write('{"ok":true,"spec":"' .. disp .. '","secs":' .. secs .. '}')
+    http.write('{"ok":true,"spec":"' .. disp .. '","secs":' .. secs .. ',"mode":"' .. mode .. '"}')
 end
 
 -- 启用并启动核心服务 (写 enabled=1 并 restart)
@@ -265,6 +269,18 @@ function act_pet_gpio()
         sys.call("/etc/init.d/athena_led restart >/dev/null 2>&1")
         http.prepare_content("application/json")
         http.write('{"ok":true,"msg":"已保存指示灯设置并重启"}')
+        return
+    end
+    if action == "led_status" then
+        -- 返回当前指示灯禁用状态 (1=关 0=亮)
+        local map = {clock="disable_led_clock", medal="disable_led_medal", up="disable_led_up", down="disable_led_down"}
+        local parts = {}
+        for k, opt in pairs(map) do
+            local v = uci:get("athena_led", "general", opt) or "0"
+            parts[#parts+1] = string.format('"%s":%s', k, (v == "1") and "1" or "0")
+        end
+        http.prepare_content("application/json")
+        http.write("{" .. table.concat(parts, ",") .. "}")
         return
     end
     -- test: 临时用该 base 启动约 5 秒 (timeout 自动退出), 测试完自动重启正常服务

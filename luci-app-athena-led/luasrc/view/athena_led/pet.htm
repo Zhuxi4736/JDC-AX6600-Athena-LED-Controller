@@ -233,6 +233,16 @@ var prevSel=document.getElementById('prevSel');
 PET_ANIM.forEach(function(b){ var o=document.createElement('option'); o.value='anim:'+b[0]; o.textContent='动画：'+b[1]+' ('+b[0]+')'; prevSel.appendChild(o); });
 PET_MODS.forEach(function(m){ var o=document.createElement('option'); o.value='mod:'+m[0]; o.textContent='模块：'+m[1]; prevSel.appendChild(o); });
 
+// 回填机身指示灯当前状态 (1=关 不勾选, 0=亮 勾选)
+(function loadLedStatus(){
+  fetch(URL_GPIO + '?action=led_status').then(function(r){return r.json();}).then(function(j){
+    if(j.clock!==undefined) document.getElementById('ledClock').checked = (j.clock==='0'||j.clock===0);
+    if(j.medal!==undefined) document.getElementById('ledMedal').checked = (j.medal==='0'||j.medal===0);
+    if(j.up!==undefined)    document.getElementById('ledUp').checked    = (j.up==='0'||j.up===0);
+    if(j.down!==undefined)  document.getElementById('ledDown').checked  = (j.down==='0'||j.down===0);
+  }).catch(function(){});
+})();
+
 document.getElementById('prevBtn').addEventListener('click', function(ev){
   ev.preventDefault();
   var txt=document.getElementById('prevText').value.trim();
