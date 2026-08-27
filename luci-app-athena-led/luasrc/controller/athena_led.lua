@@ -26,6 +26,12 @@ function index()
     entry({"admin", "services", "athena_led", "pet_enable"}, call("act_pet_enable")).leaf = true
     entry({"admin", "services", "athena_led", "pet_list"}, call("act_pet_list")).leaf = true
     entry({"admin", "services", "athena_led", "pet_upload"}, call("act_pet_upload")).leaf = true
+    -- 预览/测试: 临时播放某表情或测试屏 (不影响 pet.json, 超时自动回正常轮播)
+    entry({"admin", "services", "athena_led", "pet_preview"}, call("act_pet_preview")).leaf = true
+    entry({"admin", "services", "athena_led", "stop"}, call("act_stop")).leaf = true
+    entry({"admin", "services", "athena_led", "gpio_test"}, call("act_gpio_test")).leaf = true
+    -- 统一的服务/GPIO 控制入口 (apply=改配置并重启, test=临时测试)
+    entry({"admin", "services", "athena_led", "pet_gpio"}, call("act_pet_gpio")).leaf = true
 end
 
 -- 运行状态查询
@@ -174,4 +180,79 @@ function act_pet_upload()
     f:close()
     http.prepare_content("application/json")
     http.write('{"ok":true,"path":"' .. path .. '","bytes":' .. #data .. '}')
+end
+
+-- 预览/测试: 临时播放某表情 (不影响 pet.json, 播放完超时自动回正常轮播)
+-- 接收: spec=文件名(.bin)/模块(cpu等)/文字, secs=秒数(默认10)
+--   走 control 接口 showraw 指令 (直接播放任意 spec, 不经过 pet.json)
+function act_pet_preview()
+    local spec = http.formvalue("spec") or ""
+    local secs = tonumber(http.formvalue("secs") or "10") or 10
+    if secs < 1 then secs = 1 end
+    if secs > 60 then secs = 60 end
+    if spec == "" then
+        http.status(400)
+        http.prepare_content("application/json")
+        http.write('{"ok":false,"msg":"spec 为空"}')
+        return
+    end
+    local port = uci:get("athena_led", "general", "control_port") or "8377"
+    if spec == "__stop__" then
+        -- 停止预览: 发 home 指令让调度器回到轮播首页
+        local out = sys.exec(string.format('echo "home" | nc 127.0.0.1 %s', port))
+        http.prepare_content("application/json")
+        http.write('{"ok":true,"msg":"已回正常轮播"}')
+        return
+    end
+    -- 构造 spec: .bin 文件名 / 模块 / 文字
+    local disp = spec
+    if not disp:match("%.bin$") then
+        if disp == "cpu" or disp == "updl" or disp == "mem" or disp == "load" or disp == "time" or disp == "clock" then
+            disp = "module:" .. (disp == "clock" and "timeBlink" or disp)
+        else
+            disp = "text:" .. disp
+        end
+    end
+    local out = sys.exec(string.format('echo "showraw %s %d" | nc 127.0.0.1 %s', disp, secs, port))
+    http.prepare_content("application/json")
+    http.write('{"ok":true,"spec":"' .. disp .. '","secs":' .. secs .. '}')
+end
+
+-- 停止核心服务 (写 enabled=0 并 stop)
+function act_stop()
+    uci:set("athena_led", "general", "enabled", "0")
+    uci:commit("athena_led")
+    sys.call("/etc/init.d/athena_led stop >/dev/null 2>&1")
+    sys.call("/etc/init.d/athena_led disable >/dev/null 2>&1")
+    http.prepare_content("application/json")
+    http.write('{"ok":true}')
+end
+
+-- 统一 GPIO / 服务控制入口
+-- action=apply&base=432 -> 写 gpio_base 到配置并重启服务
+-- action=test&base=432  -> 临时用该 base 启动 5 秒测试显示 (不改配置)
+function act_pet_gpio()
+    local action = http.formvalue("action") or "test"
+    local base = http.formvalue("base") or "auto"
+    local port = uci:get("athena_led", "general", "control_port") or "8377"
+    local bin = "/usr/bin/athena_led"
+    if not sys.exec("test -x " .. bin):match("0") then
+        http.prepare_content("application/json")
+        http.write('{"ok":false,"msg":"核心程序不存在"}')
+        return
+    end
+    if action == "apply" then
+        uci:set("athena_led", "general", "gpio_base", base)
+        uci:commit("athena_led")
+        sys.call("/etc/init.d/athena_led restart >/dev/null 2>&1")
+        http.prepare_content("application/json")
+        http.write('{"ok":true,"base":"' .. base .. '","msg":"已应用 gpio_base=' .. base .. ' 并重启"}')
+        return
+    end
+    -- test: 临时用该 base 启动约 5 秒 (timeout 自动退出), 测试完自动重启正常服务
+    local test_arg = string.format('killall athena-led 2>/dev/null; sleep 1; timeout 6 %s --gpio-base %s --light-level 5 --profile "timeBlink#5" --control-port %s >/dev/null 2>&1 & sleep 7; /etc/init.d/athena_led restart >/dev/null 2>&1 &',
+        bin, base, port)
+    sys.call(test_arg)
+    http.prepare_content("application/json")
+    http.write('{"ok":true,"base":"' .. base .. '","msg":"已用 gpio_base=' .. base .. ' 测试约5秒, 之后自动恢复正常运行"}')
 end

@@ -232,6 +232,26 @@ fn handle_command(
             }
         }
 
+        // 🌟 [v2.6.0 预览] showraw <spec> <secs>: 直接播放任意 spec
+        //   spec 格式同 build_pet_request: xxx.bin / module:cpu / text:hi
+        //   不经过 pet.json, 用于网页"预览测试"功能
+        "showraw" => {
+            let spec = parts.next().unwrap_or("").trim();
+            if spec.is_empty() {
+                return "ERR 用法: showraw <spec> <秒数>".to_string();
+            }
+            let secs = parts.next().and_then(|s| s.parse::<u64>().ok()).unwrap_or(10);
+            let secs = secs.clamp(1, 60);
+            let (pspec, psecs) = build_pet_request(spec);
+            if let Ok(mut st) = state.lock() {
+                st.pending_pet = Some((pspec, psecs.min(secs)));
+                st.pet_last_active = Some(std::time::Instant::now());
+            }
+            let current = *tx.borrow();
+            if current > 0 { let _ = tx.send(current + 1); }
+            "OK".to_string()
+        }
+
         "" => "ERR 空指令".to_string(),
         other => format!("ERR 未知指令: {} (可用: next/home/off/wake/toggle/light/show/ping/pet/petb/petidle)", other),
     }

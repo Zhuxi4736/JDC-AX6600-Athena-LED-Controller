@@ -5,6 +5,9 @@ local url_en   = luci.dispatcher.build_url("admin","services","athena_led","pet_
 local url_stat = luci.dispatcher.build_url("admin","services","athena_led","status")
 local url_upload = luci.dispatcher.build_url("admin","services","athena_led","pet_upload")
 local url_list   = luci.dispatcher.build_url("admin","services","athena_led","pet_list")
+local url_preview = luci.dispatcher.build_url("admin","services","athena_led","pet_preview")
+local url_stop    = luci.dispatcher.build_url("admin","services","athena_led","stop")
+local url_gpio    = luci.dispatcher.build_url("admin","services","athena_led","pet_gpio")
 %>
 <%+header%>
 <div class="cbi-map">
@@ -13,12 +16,30 @@ local url_list   = luci.dispatcher.build_url("admin","services","athena_led","pe
 
 <div id="statusBox" class="cbi-section">
   <b>核心服务状态：</b> <span id="st">检测中…</span>
+  <button class="cbi-button cbi-button-remove" id="stopBtn" style="margin-left:12px">停止服务</button>
+  <button class="cbi-button cbi-button-apply" id="enBtn" style="margin-left:6px">启用并启动</button>
 </div>
 
 <div class="cbi-section">
-  <h3>启用 Athena LED 核心服务</h3>
-  <p>若屏幕不亮，请先在此启用核心服务（向 /etc/config/athena_led 写入 <code>enabled 1</code> 并启动它）。</p>
-  <button class="cbi-button cbi-button-apply" id="enBtn">启用并启动</button>
+  <h3>屏幕 / GPIO 设置（屏不亮先调这里）</h3>
+  <p>QWRT（内核 5.x）通常需要把 GPIO 基址设为 <b>432</b>。若服务在跑但屏不亮，选 432 后点「应用并重启」试试。</p>
+  <div style="margin-top:6px">
+    GPIO 基址：
+    <select id="gpioBase" class="cbi-input-select" style="width:160px">
+      <option value="auto">auto（自动探测）</option>
+      <option value="432">432（Kernel 5.x）</option>
+      <option value="512">512（Kernel 6.1+）</option>
+      <option value="0">0（Legacy）</option>
+    </select>
+    <button class="cbi-button cbi-button-apply" id="gpioApply" style="margin-left:8px">应用并重启</button>
+    <span id="gpioMsg" style="margin-left:8px"></span>
+  </div>
+  <div style="margin-top:8px">
+    <button class="cbi-button cbi-button-add" id="gpioTestAuto">测 auto</button>
+    <button class="cbi-button cbi-button-add" id="gpioTest432" style="margin-left:6px">测 432</button>
+    <button class="cbi-button cbi-button-add" id="gpioTest512" style="margin-left:6px">测 512</button>
+    <span style="margin-left:8px;color:#888">点一下看屏是否亮约 5 秒（不改动配置，仅测试）</span>
+  </div>
 </div>
 
 <div class="cbi-section">
@@ -35,6 +56,18 @@ local url_list   = luci.dispatcher.build_url("admin","services","athena_led","pe
   <button class="cbi-button cbi-button-add" id="addBtn">+ 添加状态</button>
   <button class="cbi-button cbi-button-apply" id="saveBtn" style="margin-left:8px">保存映射并重启</button>
   <pre id="msg" style="white-space:pre-wrap"></pre>
+</div>
+
+<div class="cbi-section">
+  <h3>预览测试（试播表情 / 不影响配置）</h3>
+  <p>选一个表情或显示内容，点「试播」让屏幕立即显示约 10 秒，然后自动回到正常监控轮播。像壁纸软件的预览一样，用来确认某个表情/显示效果在屏上的真实样子。</p>
+  <div style="margin-top:6px">
+    <select id="prevSel" class="cbi-input-select" style="width:260px"></select>
+    <input type="text" id="prevText" class="cbi-input-text" placeholder="或填自定义文字" style="width:160px;margin-left:6px" />
+    <button class="cbi-button cbi-button-apply" id="prevBtn" style="margin-left:8px">试播</button>
+    <button class="cbi-button cbi-button-remove" id="prevStop" style="margin-left:6px">停止并回轮播</button>
+    <span id="prevMsg" style="margin-left:8px"></span>
+  </div>
 </div>
 
 <div class="cbi-section">
@@ -137,6 +170,70 @@ function refreshStatus(){
   }).catch(function(){});
 }
 refreshStatus(); setInterval(refreshStatus, 5000);
+
+// ============================================================
+// 服务开关 / GPIO 设置 / 预览测试
+// ============================================================
+var URL_PREVIEW='<%=url_preview%>';
+var URL_STOP='<%=url_stop%>';
+var URL_GPIO='<%=url_gpio%>';
+
+// 停止服务
+document.getElementById('stopBtn').addEventListener('click', function(ev){
+  ev.preventDefault();
+  if(!confirm('确定停止 Athena LED 核心服务？屏幕将熄灭。')) return;
+  post(URL_STOP, {}, function(j){ if(j&&j.ok){ document.getElementById('st').textContent='已停止'; refreshStatus(); } });
+});
+
+// GPIO 应用并重启
+document.getElementById('gpioApply').addEventListener('click', function(ev){
+  ev.preventDefault();
+  var base=document.getElementById('gpioBase').value;
+  post(URL_GPIO, {action:'apply', base:base}, function(j){
+    document.getElementById('gpioMsg').textContent = (j&&j.ok)?'已应用 gpio_base='+base+'，服务重启中…':'失败：'+(j&&j.msg?j.msg:'未知');
+    refreshStatus();
+  });
+});
+
+// GPIO 测试 (不改动配置)
+function gpioTest(base){
+  post(URL_GPIO, {action:'test', base:base}, function(j){
+    document.getElementById('gpioMsg').textContent = (j&&j.ok)?'已用 '+base+' 启动测试，看屏幕是否亮约5秒':'失败：'+(j&&j.msg?j.msg:'未知');
+  });
+}
+document.getElementById('gpioTestAuto').addEventListener('click', function(ev){ ev.preventDefault(); gpioTest('auto'); });
+document.getElementById('gpioTest432').addEventListener('click', function(ev){ ev.preventDefault(); gpioTest('432'); });
+document.getElementById('gpioTest512').addEventListener('click', function(ev){ ev.preventDefault(); gpioTest('512'); });
+
+// 预览选择框: 复用 PET_ANIM / PET_MODS + 文字
+var prevSel=document.getElementById('prevSel');
+PET_ANIM.forEach(function(b){ var o=document.createElement('option'); o.value='anim:'+b[0]; o.textContent='动画：'+b[1]+' ('+b[0]+')'; prevSel.appendChild(o); });
+PET_MODS.forEach(function(m){ var o=document.createElement('option'); o.value='mod:'+m[0]; o.textContent='模块：'+m[1]; prevSel.appendChild(o); });
+
+document.getElementById('prevBtn').addEventListener('click', function(ev){
+  ev.preventDefault();
+  var txt=document.getElementById('prevText').value.trim();
+  var spec;
+  if(txt){ spec=txt; }
+  else {
+    var v=prevSel.value;
+    if(v.startsWith('anim:')) spec=v.slice(5);
+    else if(v.startsWith('mod:')) spec=v.slice(4);
+    else spec=v;
+  }
+  if(!spec){ document.getElementById('prevMsg').textContent='请选择或填写内容'; return; }
+  post(URL_PREVIEW, {spec:spec, secs:'10'}, function(j){
+    document.getElementById('prevMsg').textContent = (j&&j.ok)?'试播中（'+spec+'），约10秒后自动回轮播':'失败：'+(j&&j.msg?j.msg:'未知');
+  });
+});
+
+document.getElementById('prevStop').addEventListener('click', function(ev){
+  ev.preventDefault();
+  // 发 home 指令让调度器回到轮播首页
+  post(URL_PREVIEW, {spec:'__stop__', secs:'1'}, function(j){
+    document.getElementById('prevMsg').textContent='已停止预览，回到正常轮播';
+  });
+});
 
 // ============================================================
 // 🌟 上传 GIF/PNG -> 27×5 单色 .bin (复刻 gif2bin.py 字节格式)
