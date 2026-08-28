@@ -54,4 +54,9 @@ impl LedScreen {
         println!("✅ [虚拟屏幕] 动画 {} 播放结束", file_name);
         Ok(())
     }
+
+    // 🌟 [v2.7.1] 按 mode 统一渲染 (Windows 模拟: 与 write_data 同样回显, 无动画效果)
+    pub async fn write_data_mode(&mut self, data: &[u8], flag: u8, _mode: &str, _frame_ms: u64) -> Result<()> {
+        self.write_data(data, flag).await
+    }
 }

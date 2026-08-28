@@ -376,29 +376,6 @@ impl LedScreen {
         Ok(())
     }
 
-    // 🌟 专为动态模块（天气、时间）设计的“强制静态、完美居中、零浪费”特化方法
-    // (当前调度器未使用，保留给外部/未来模块调用)
-    #[allow(dead_code)]
-    pub async fn write_data_static(&mut self, text: &[u8], status: u8) -> Result<()> {
-        let mut display_data = Vec::new();
-        let content = std::str::from_utf8(text).unwrap_or("");
-
-        for ch in content.chars() {
-            let key = ch.to_ascii_uppercase();
-            if let Some(bytes) = CHAR_DICT.get(&key) {
-                display_data.extend_from_slice(bytes);
-                display_data.push(0x00);
-            }
-        }
-
-        if !display_data.is_empty() {
-            display_data.pop();
-        }
-
-        self.static_display(&display_data, status)?;
-        Ok(())
-    }
-
     // 🌟 [v2.6.1] 逐字冒出渲染: 每帧多显示一个字符 (type 模式用)
     pub async fn write_data_typed(&mut self, text: &[u8], status: u8, frame_ms: u64) -> Result<()> {
         let content = std::str::from_utf8(text).unwrap_or("");
@@ -412,6 +389,34 @@ impl LedScreen {
         // 全部显示完后停留一拍再返回
         tokio::time::sleep(Duration::from_millis(frame_ms.max(30) * 3)).await;
         Ok(())
+    }
+
+    // 🌟 [v2.7.1] 按 mode 统一渲染: type=逐字, flow=强制横向滚动(即使短文本), static=定格
+    pub async fn write_data_mode(&mut self, text: &[u8], status: u8, mode: &str, frame_ms: u64) -> Result<()> {
+        if mode == "type" {
+            return self.write_data_typed(text, status, frame_ms).await;
+        }
+        if mode == "flow" {
+            let mut display_data = Vec::new();
+            let content = std::str::from_utf8(text).unwrap_or("");
+            for ch in content.chars() {
+                let key = ch.to_ascii_uppercase();
+                if let Some(bytes) = CHAR_DICT.get(&key) {
+                    display_data.extend_from_slice(bytes);
+                    display_data.push(0x00);
+                }
+            }
+            if !display_data.is_empty() {
+                display_data.pop();
+            }
+            // pad 到 >27 列强制触发横向滚动
+            while display_data.len() < 28 {
+                display_data.push(0x00);
+            }
+            return self.flow(&display_data, status).await;
+        }
+        // static (默认): 定格
+        self.write_data(text, status).await
     }
 
     // 1. 加上 async 关键字

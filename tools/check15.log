@@ -1,0 +1,54 @@
+    Checking athena-led v2.7.1 (C:\Users\47362\JDC-AX6600-Athena-LED-Controller\athena-led)
+error[E0599]: no method named `write_data_mode` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:429:44
+    |
+429 | ...                   let _ = screen.write_data_mode(text.as_bytes(), led_flag, sub.mode, frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `write_data_mode` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:435:44
+    |
+435 | ...                   let _ = screen.write_data_mode(txt.as_bytes(), led_flag, sub.mode, frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `write_data_mode` found for mutable reference `&mut LedScreen` in the current scope
+   --> src\scheduler.rs:441:44
+    |
+441 | ...                   let _ = screen.write_data_mode(sub.content.as_bytes(), led_flag, sub.mode, frame_ms).await;
+    |                                      ^^^^^^^^^^^^^^^
+    |
+help: there is a method `write_data` with a similar name, but with different arguments
+   --> src\led_screen_sim.rs:36:5
+    |
+ 36 |     pub async fn write_data(&mut self, data: &[u8], flag: u8) -> Result<()> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `last_tx`
+   --> src\monitor.rs:856:19
+    |
+856 |     let (last_rx, last_tx, last_time) = self.net_speed_cache
+    |                   ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_last_tx`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `args`
+   --> src\states.rs:137:46
+    |
+137 |     fn matches(&self, m: &mut SystemMonitor, args: &Args, signals: &HashMap<String, Instant>) -> bool {
+    |                                              ^^^^ help: if this is intentional, prefix it with an underscore: `_args`
+
+For more information about this error, try `rustc --explain E0599`.
+warning: `athena-led` (bin "athena-led") generated 2 warnings
+error: could not compile `athena-led` (bin "athena-led") due to 3 previous errors; 2 warnings emitted

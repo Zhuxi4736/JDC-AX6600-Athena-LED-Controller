@@ -304,6 +304,9 @@ pub async fn process_loop(
                         }
                     }
                 }
+                // 🌟 [v2.7.1 修复] 预览结束后强制回到默认状态轮播 (避免残留其他激活态)
+                sm_active_id = None;
+                sm_sub_idx = 0;
             }
 
             let signals = {
@@ -423,19 +426,20 @@ pub async fn process_loop(
                         if sub.mode == "type" {
                             let _ = screen.write_data_typed(text.as_bytes(), led_flag, frame_ms).await;
                         } else {
-                            let _ = screen.write_data(text.as_bytes(), led_flag).await;
-                            tokio::time::sleep(Duration::from_millis(frame_ms)).await;
+                            let _ = screen.write_data_mode(text.as_bytes(), led_flag, &sub.mode, frame_ms).await;
                         }
                     } else if let Some(txt) = sub.content.strip_prefix("text:") {
                         if sub.mode == "type" {
                             let _ = screen.write_data_typed(txt.as_bytes(), led_flag, frame_ms).await;
                         } else {
-                            let _ = screen.write_data(txt.as_bytes(), led_flag).await;
-                            tokio::time::sleep(Duration::from_millis(frame_ms)).await;
+                            let _ = screen.write_data_mode(txt.as_bytes(), led_flag, &sub.mode, frame_ms).await;
                         }
                     } else {
-                        let _ = screen.write_data(sub.content.as_bytes(), led_flag).await;
-                        tokio::time::sleep(Duration::from_millis(frame_ms)).await;
+                        if sub.mode == "type" {
+                            let _ = screen.write_data_typed(sub.content.as_bytes(), led_flag, frame_ms).await;
+                        } else {
+                            let _ = screen.write_data_mode(sub.content.as_bytes(), led_flag, &sub.mode, frame_ms).await;
+                        }
                     }
                 }
                 // 子状态前进
