@@ -366,13 +366,51 @@ pub async fn process_loop(
                         let _ = screen.play_animation(&sub.content, sub.duration, led_flag).await;
                         break;
                     } else if let Some(module) = sub.content.strip_prefix("module:") {
+                        if module == "weather" {
+                            // 🌟 [v2.7.1] 动态天气图标 + 可选温度区间（移植旧版动画逻辑）
+                            let full = net.weather();
+                            let (static_icon, raw_rest) = match full.split_once(' ') {
+                                Some((icon, rest)) => (icon, rest),
+                                None => {
+                                    let _ = screen.write_data(full.as_bytes(), led_flag).await;
+                                    tokio::time::sleep(Duration::from_secs(sub.duration.max(1))).await;
+                                    break;
+                                }
+                            };
+                            let clean = raw_rest.trim();
+                            // 解析温度与区间：原始形如 "25℃ 20-30" 或 "25℃"
+                            let parts: Vec<&str> = clean.split_whitespace().collect();
+                            let temp_part = if parts.is_empty() {
+                                String::new()
+                            } else if sub.weather_range && parts.len() >= 2 {
+                                // 显示温度 + 区间：如 "25℃ 20-30"
+                                format!("{} {}", parts[0], parts[1])
+                            } else {
+                                // 仅温度：如 "25℃"
+                                parts[0].to_string()
+                            };
+                            let mut frame_flag = true;
+                            let mut last_frame = Instant::now();
+                            let dur = Duration::from_secs(sub.duration.max(1));
+                            let start = Instant::now();
+                            while start.elapsed() < dur {
+                                let dyn_icon = monitor.get_animated_icon(static_icon, frame_flag);
+                                let display = format!("{}{}", dyn_icon, temp_part);
+                                let _ = screen.write_data(display.as_bytes(), led_flag).await;
+                                if last_frame.elapsed().as_millis() >= 500 {
+                                    frame_flag = !frame_flag;
+                                    last_frame = Instant::now();
+                                }
+                                tokio::time::sleep(Duration::from_millis(100)).await;
+                            }
+                            break;
+                        }
                         let text = match module {
                             "cpu" => monitor.get_cpu_usage_string(),
                             "updl" => format!("{}/{}", monitor.get_tx_speed_mbps(), monitor.get_rx_speed_mbps()),
                             "mem" => monitor.get_mem_string(),
                             "load" => monitor.get_load_string(),
                             "temp" => monitor.get_temps_by_ids(&args.temp_flag),
-                            "weather" => net.weather(),
                             "timeSec" => Local::now().format("%H:%M:%S").to_string(),
                             "date" => Local::now().format("%m-%d").to_string(),
                             "week" => Local::now().format("%a").to_string().to_uppercase(),

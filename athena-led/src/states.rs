@@ -42,6 +42,8 @@ pub struct SubState {
     pub duration: u64, // 子状态停留秒
     #[serde(default)]
     pub show_sec: bool, // time 模块是否显示到秒
+    #[serde(default = "default_true")]
+    pub weather_range: bool, // weather 模块是否显示温度区间(如 20-30)
     #[serde(default)]
     pub leds: LedState,
 }
@@ -49,6 +51,7 @@ pub struct SubState {
 fn default_mode() -> String { "static".into() }
 fn default_speed() -> u64 { 100 }
 fn default_duration() -> u64 { 5 }
+fn default_true() -> bool { true }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Rule {

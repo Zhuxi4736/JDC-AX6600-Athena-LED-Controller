@@ -178,7 +178,7 @@ local url_gpio    = luci.dispatcher.build_url("admin","services","athena_led","p
 
 <script type="text/javascript">
 var PET_ANIM = [['pet_thinking.bin','思考中'],['pet_run.bin','奔跑'],['pet_wave.bin','招手'],['pet_jump.bin','跳跃'],['pet_failed.bin','失败/报错'],['pet_love.bin','爱心'],['pet_waiting.bin','等待'],['pet_idle.bin','待机']];
-var PET_MODS = [['cpu','CPU 占用率 %'],['updl','实时上下行速率'],['mem','内存占用率 %'],['load','系统负载'],['temp','芯片温度'],['weather','天气（含温度，自动定位）'],['time','时钟（可勾选显示到秒）'],['date','日期(月-日)'],['week','星期'],['blank','黑屏（熄屏）']];
+var PET_MODS = [['cpu','CPU 占用率 %'],['updl','实时上下行速率'],['mem','内存占用率 %'],['load','系统负载'],['temp','芯片温度'],['weather','天气（动态图标+温度）'],['time','时钟（可勾选显示到秒）'],['date','日期(月-日)'],['week','星期'],['blank','黑屏（熄屏）']];
 var URL_LOAD='<%=url_load%>';
 var URL_SAVE='<%=url_save%>';
 var URL_EN='<%=url_en%>';
@@ -354,6 +354,10 @@ function addSubRow(sub){
   var secChk=document.createElement('label'); secChk.style.marginLeft='4px'; secChk.style.display='none';
   var secInput=document.createElement('input'); secInput.type='checkbox'; secInput.checked=!!sub.show_sec;
   secChk.appendChild(secInput); secChk.appendChild(document.createTextNode('显示到秒'));
+  // 温度区间（仅 weather 模块可用）
+  var rangeChk=document.createElement('label'); rangeChk.style.marginLeft='4px'; rangeChk.style.display='none';
+  var rangeInput=document.createElement('input'); rangeInput.type='checkbox'; rangeInput.checked=(sub.weather_range!==false);
+  rangeChk.appendChild(rangeInput); rangeChk.appendChild(document.createTextNode('显示温度区间'));
   // 速度 / 时长
   var spd=document.createElement('input'); spd.type='number'; spd.className='cbi-input-text'; spd.style.width='64px'; spd.value=sub.speed||100; spd.title='速度ms/帧';
   var dur=document.createElement('input'); dur.type='number'; dur.className='cbi-input-text'; dur.style.width='64px'; dur.value=sub.duration||5; dur.title='停留秒数';
@@ -372,6 +376,7 @@ function addSubRow(sub){
     modSel.style.display = (k==='mod')?'':'none';
     txtIn.style.display = (k==='text')?'':'none';
     secChk.style.display = (k==='mod' && modSel.value==='time')?'':'none';
+    rangeChk.style.display = (k==='mod' && modSel.value==='weather')?'':'none';
   }
   // 根据 curContent 反推 kind 与值
   if(curContent.indexOf('module:')===0){ kindSel.value='mod'; modSel.value=curContent.slice(7); }
@@ -393,11 +398,12 @@ function addSubRow(sub){
       content:content, mode:modeSel.value,
       speed:parseInt(spd.value||'100',10), duration:parseInt(dur.value||'5',10),
       show_sec: secInput.checked,
+      weather_range: rangeInput.checked,
       leds:{ clock: lc.querySelector('input').checked?1:0, medal: lm.querySelector('input').checked?1:0, up: lu.querySelector('input').checked?1:0, down: ld.querySelector('input').checked?1:0 }
     };
   };
   row.appendChild(kindSel); row.appendChild(animSel); row.appendChild(modSel); row.appendChild(txtIn);
-  row.appendChild(document.createTextNode('方式')); row.appendChild(modeSel); row.appendChild(secChk);
+  row.appendChild(document.createTextNode('方式')); row.appendChild(modeSel); row.appendChild(secChk); row.appendChild(rangeChk);
   row.appendChild(document.createTextNode('速度')); row.appendChild(spd);
   row.appendChild(document.createTextNode('时长')); row.appendChild(dur);
   row.appendChild(lc); row.appendChild(lm); row.appendChild(lu); row.appendChild(ld);
