@@ -1,0 +1,24 @@
+    Checking athena-led v2.7.0 (C:\Users\47362\JDC-AX6600-Athena-LED-Controller\athena-led)
+error[E0425]: cannot find value `sub` in this scope
+   --> src\scheduler.rs:492:46
+    |
+492 | ...                   let fmt = if sub.show_sec { "%H:%M:%S" } else { "%H:%M" };
+    |                                    ^^^ not found in this scope
+
+warning: unused variable: `last_tx`
+   --> src\monitor.rs:856:19
+    |
+856 |     let (last_rx, last_tx, last_time) = self.net_speed_cache
+    |                   ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_last_tx`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `args`
+   --> src\states.rs:134:46
+    |
+134 |     fn matches(&self, m: &mut SystemMonitor, args: &Args, signals: &HashMap<String, Instant>) -> bool {
+    |                                              ^^^^ help: if this is intentional, prefix it with an underscore: `_args`
+
+For more information about this error, try `rustc --explain E0425`.
+warning: `athena-led` (bin "athena-led") generated 2 warnings
+error: could not compile `athena-led` (bin "athena-led") due to 1 previous error; 2 warnings emitted

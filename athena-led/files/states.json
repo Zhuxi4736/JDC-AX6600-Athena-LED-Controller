@@ -10,7 +10,7 @@
       "trigger": null,
       "substates": [
         { "content": "module:weather", "mode": "flow", "speed": 90, "duration": 8, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } },
-        { "content": "module:timeSec", "mode": "static", "speed": 100, "duration": 4, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } }
+        { "content": "module:time", "mode": "static", "speed": 100, "duration": 4, "show_sec": true, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } }
       ]
     },
     {

@@ -41,6 +41,8 @@ pub struct SubState {
     #[serde(default = "default_duration")]
     pub duration: u64, // 子状态停留秒
     #[serde(default)]
+    pub show_sec: bool, // time 模块是否显示到秒
+    #[serde(default)]
     pub leds: LedState,
 }
 

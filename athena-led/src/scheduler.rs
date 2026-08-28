@@ -371,7 +371,10 @@ pub async fn process_loop(
                             "timeSec" => Local::now().format("%H:%M:%S").to_string(),
                             "date" => Local::now().format("%m-%d").to_string(),
                             "week" => Local::now().format("%a").to_string().to_uppercase(),
-                            "timeBlink" | "time" => Local::now().format("%H:%M").to_string(),
+                            "timeBlink" | "time" => {
+                                let fmt = if sub.show_sec { "%H:%M:%S" } else { "%H:%M" };
+                                Local::now().format(fmt).to_string()
+                            },
                             _ => module.to_string(),
                         };
                         if sub.mode == "type" {
