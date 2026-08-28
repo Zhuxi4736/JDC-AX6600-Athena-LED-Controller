@@ -296,10 +296,11 @@ pub async fn process_loop(
                             tokio::time::sleep(Duration::from_millis(frame_ms)).await;
                         }
                     } else {
+                        let show_spec = spec.strip_prefix("text:").unwrap_or(&spec);
                         if mode == "type" {
-                            let _ = screen.write_data_typed(spec.as_bytes(), crate::scheduler::get_leds_static(monitor, args), frame_ms).await;
+                            let _ = screen.write_data_typed(show_spec.as_bytes(), crate::scheduler::get_leds_static(monitor, args), frame_ms).await;
                         } else {
-                            let _ = screen.write_data(spec.as_bytes(), crate::scheduler::get_leds_static(monitor, args)).await;
+                            let _ = screen.write_data(show_spec.as_bytes(), crate::scheduler::get_leds_static(monitor, args)).await;
                             tokio::time::sleep(Duration::from_millis(frame_ms)).await;
                         }
                     }
@@ -346,6 +347,10 @@ pub async fn process_loop(
                 let frame_ms = if sub.speed > 0 { sub.speed } else { 100 } as u64;
 
                 while sub_start.elapsed() < Duration::from_secs(sub.duration.max(1)) {
+                    // 🌟 [v2.7.1] 预览/插播优先打断当前子状态, 避免试播延迟一整个子状态周期
+                    if control.lock().map(|st| st.pending_pet.is_some() || st.pending_show.is_some()).unwrap_or(false) {
+                        break;
+                    }
                     // 亮度检查
                     let desired_light = effective_light(args, control);
                     if desired_light != applied_light {

@@ -1,0 +1,40 @@
+    Checking athena-led v2.7.1 (C:\Users\47362\JDC-AX6600-Athena-LED-Controller\athena-led)
+error[E0308]: mismatched types
+   --> src\scheduler.rs:299:78
+    |
+299 |                         let show_spec = spec.strip_prefix("text:").unwrap_or(spec);
+    |                                                                    --------- ^^^^ expected `&str`, found `String`
+    |                                                                    |
+    |                                                                    arguments to this method are incorrect
+    |
+help: the return type of this call is `std::string::String` due to the type of the argument passed
+   --> src\scheduler.rs:299:41
+    |
+299 |                         let show_spec = spec.strip_prefix("text:").unwrap_or(spec);
+    |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^----^
+    |                                                                              |
+    |                                                                              this argument influences the return type of `unwrap_or`
+note: method defined here
+   --> /rustc/88d9e12ae178fab0fb5cc050a94da85685d449ea/library\core\src\option.rs:1036:17
+help: consider borrowing here
+    |
+299 |                         let show_spec = spec.strip_prefix("text:").unwrap_or(&spec);
+    |                                                                              +
+
+warning: unused variable: `last_tx`
+   --> src\monitor.rs:856:19
+    |
+856 |     let (last_rx, last_tx, last_time) = self.net_speed_cache
+    |                   ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_last_tx`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `args`
+   --> src\states.rs:137:46
+    |
+137 |     fn matches(&self, m: &mut SystemMonitor, args: &Args, signals: &HashMap<String, Instant>) -> bool {
+    |                                              ^^^^ help: if this is intentional, prefix it with an underscore: `_args`
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `athena-led` (bin "athena-led") generated 2 warnings
+error: could not compile `athena-led` (bin "athena-led") due to 1 previous error; 2 warnings emitted
