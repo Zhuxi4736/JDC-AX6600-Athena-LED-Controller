@@ -233,9 +233,9 @@ s.anonymous = true
 s.addremove = false
 
 -- 网口选择
-o = s:option(Value, "net_interface", translate("Network Interface"))
-o.description = translate("Interface for traffic monitoring (e.g. br-lan).")
-o.default = "br-lan"
+o = s:option(Value, "net_interface", translate("Network Interface (流量监测网卡)"))
+o.description = translate("上下行速率读取的网卡。QWRT 默认填 wan（真实出口）。若显示一直为 0，请确认此处为 wan 而非 br-lan。")
+o.default = "wan"
 for _, dev in ipairs(sys.net.devices()) do
     if dev ~= "lo" then o:value(dev) end
 end

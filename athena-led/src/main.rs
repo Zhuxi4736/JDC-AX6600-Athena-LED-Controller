@@ -88,7 +88,7 @@ pub struct Args {
     pub profile: Vec<String>,
 
     // --- 网络与接口配置 ---
-    #[arg(long, default_value = "br-lan")]
+    #[arg(long, default_value = "wan")]
     pub net_interface: String,
 
     // --- 各个模块的专属配置 ---

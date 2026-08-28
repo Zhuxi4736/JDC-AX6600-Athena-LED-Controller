@@ -357,7 +357,11 @@ pub async fn process_loop(
                         if sub.leds.down == 1 { f |= 8; }
                         f
                     };
-                    if sub.content.ends_with(".bin") {
+                    if sub.content == "blank" {
+                        // 🌟 [v2.7.0] 黑屏子状态：屏幕熄灭并停留 duration 秒
+                        let _ = screen.power(false, 0);
+                        tokio::time::sleep(Duration::from_secs(sub.duration.max(1))).await;
+                    } else if sub.content.ends_with(".bin") {
                         let _ = screen.play_animation(&sub.content, sub.duration, led_flag).await;
                         break;
                     } else if let Some(module) = sub.content.strip_prefix("module:") {
