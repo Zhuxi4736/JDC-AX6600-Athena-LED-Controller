@@ -116,16 +116,35 @@ fn handle_command(
     match cmd.as_str() {
         "ping" => "PONG".to_string(),
 
-        // 🌟 [v2.7.0] 外部信号推送: signal <name>  -> 记录到 signals 集合 (状态机 http 触发用)
+        // 🌟 [v2.7.0] 外部信号推送: signal <name> [off] -> 记录/撤销到 signals 集合
         "signal" => {
-            let name = parts.next().unwrap_or("").trim();
+            let rest = parts.next().unwrap_or("").trim();
+            if rest.is_empty() {
+                return "ERR 用法: signal <信号名> [off]".to_string();
+            }
+            // 支持 "signal <name> off" 撤销
+            let (name, off) = if let Some(n) = rest.strip_suffix(" off") {
+                (n.trim(), true)
+            } else if rest.ends_with("/off") {
+                (rest.trim_end_matches("/off").trim_end_matches('/'), true)
+            } else {
+                (rest, false)
+            };
             if name.is_empty() {
-                return "ERR 用法: signal <信号名>".to_string();
+                return "ERR 用法: signal <信号名> [off]".to_string();
             }
             if let Ok(mut st) = state.lock() {
-                st.signals.insert(name.to_string(), std::time::Instant::now());
+                if off {
+                    st.signals.remove(name);
+                } else {
+                    st.signals.insert(name.to_string(), std::time::Instant::now());
+                }
             }
-            format!("OK signal:{}", name)
+            if off {
+                format!("OK signal-off:{}", name)
+            } else {
+                format!("OK signal:{}", name)
+            }
         }
 
         "next" => {
@@ -325,14 +344,27 @@ pub fn spawn_control_server(
                     // 🌟 [v2.7.0] 识别 HTTP 信号请求: GET /signal/<name> HTTP/1.1
                     if line.starts_with("GET /signal/") && line.contains("HTTP/") {
                         is_http = true;
-                        let name = line.trim_start_matches("GET /signal/")
+                        let raw = line.trim_start_matches("GET /signal/")
                             .split_whitespace().next().unwrap_or("").trim_end_matches('/');
+                        let (name, off) = if let Some(n) = raw.strip_suffix("/off") {
+                            (n.trim_end_matches('/'), true)
+                        } else {
+                            (raw, false)
+                        };
                         if !name.is_empty() {
                             if let Ok(mut st) = state.lock() {
-                                st.signals.insert(name.to_string(), std::time::Instant::now());
+                                if off {
+                                    st.signals.remove(name);
+                                } else {
+                                    st.signals.insert(name.to_string(), std::time::Instant::now());
+                                }
                             }
                         }
-                        let body = format!("OK signal:{}", name);
+                        let body = if off {
+                            format!("OK signal-off:{}", name)
+                        } else {
+                            format!("OK signal:{}", name)
+                        };
                         let resp = format!(
                             "HTTP/1.1 200 OK
 \nContent-Type: text/plain

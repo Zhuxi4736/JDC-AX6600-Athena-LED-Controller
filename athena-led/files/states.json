@@ -83,6 +83,24 @@
         { "content": "pet_wave.bin", "mode": "static", "speed": 100, "duration": 5, "leds": { "clock": 1, "medal": 1, "up": 1, "down": 1 } },
         { "content": "text:叮咚!", "mode": "type", "speed": 120, "duration": 5, "leds": { "clock": 1, "medal": 1, "up": 1, "down": 1 } }
       ]
+    },
+    {
+      "id": "thinking",
+      "name": "Hermes 思考中",
+      "is_default": false,
+      "priority": 30,
+      "persistent": false,
+      "hold_secs": 10,
+      "trigger": {
+        "logic": "or",
+        "rules": [
+          { "type": "http", "signal": "thinking", "keep": true }
+        ]
+      },
+      "substates": [
+        { "content": "pet_thinking.bin", "mode": "static", "speed": 100, "duration": 4, "blink_ms": 500, "leds": { "clock": 2, "medal": 0, "up": 0, "down": 0 } },
+        { "content": "text:思考中", "mode": "type", "speed": 100, "duration": 4, "blink_ms": 500, "leds": { "clock": 2, "medal": 0, "up": 0, "down": 0 } }
+      ]
     }
   ]
 }

@@ -358,11 +358,22 @@ pub async fn process_loop(
                         applied_light = desired_light;
                     }
                     let led_flag = {
+                        let blink_on = |v: u8, bit: u8| -> u8 {
+                            match v {
+                                0 => 0u8,          // 灭
+                                1 => bit,          // 常亮
+                                _ => {              // 2=闪烁: 按 blink_ms 取模
+                                    let period = sub.blink_ms.max(100) * 2;
+                                    let el = sub_start.elapsed().as_millis() as u64;
+                                    if el % period < sub.blink_ms.max(100) { bit } else { 0 }
+                                }
+                            }
+                        };
                         let mut f = 0u8;
-                        if sub.leds.clock == 1 { f |= 1; }
-                        if sub.leds.medal == 1 { f |= 2; }
-                        if sub.leds.up == 1 { f |= 4; }
-                        if sub.leds.down == 1 { f |= 8; }
+                        f |= blink_on(sub.leds.clock, 1);
+                        f |= blink_on(sub.leds.medal, 2);
+                        f |= blink_on(sub.leds.up, 4);
+                        f |= blink_on(sub.leds.down, 8);
                         f
                     };
                     if sub.content == "blank" {

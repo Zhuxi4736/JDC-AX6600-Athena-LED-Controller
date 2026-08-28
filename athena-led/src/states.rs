@@ -15,13 +15,13 @@ use std::time::Instant;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LedState {
     #[serde(default)]
-    pub clock: u8, // 1=亮 0=灭
+    pub clock: u8, // 0=灭 1=常亮 2=闪烁
     #[serde(default)]
-    pub medal: u8,
+    pub medal: u8, // 0=灭 1=常亮 2=闪烁
     #[serde(default)]
-    pub up: u8,
+    pub up: u8, // 0=灭 1=常亮 2=闪烁
     #[serde(default)]
-    pub down: u8,
+    pub down: u8, // 0=灭 1=常亮 2=闪烁
 }
 
 impl Default for LedState {
@@ -44,6 +44,8 @@ pub struct SubState {
     pub show_sec: bool, // time 模块是否显示到秒
     #[serde(default = "default_true")]
     pub weather_range: bool, // weather 模块是否显示温度区间(如 20-30)
+    #[serde(default = "default_blink")]
+    pub blink_ms: u64, // 机身灯闪烁间隔(ms), 亮灭各 blink_ms
     #[serde(default)]
     pub leds: LedState,
 }
@@ -52,6 +54,7 @@ fn default_mode() -> String { "static".into() }
 fn default_speed() -> u64 { 100 }
 fn default_duration() -> u64 { 5 }
 fn default_true() -> bool { true }
+fn default_blink() -> u64 { 500 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Rule {
@@ -70,6 +73,8 @@ pub struct Rule {
     pub mac: String, // device MAC
     #[serde(default)]
     pub signal: String, // http 信号名
+    #[serde(default)]
+    pub keep: bool, // http 信号保持态: true=信号存在期间一直命中(撤销才结束), false=推后60s内命中(瞬态)
     #[serde(default)]
     pub script: String, // 脚本路径
 }
@@ -138,9 +143,14 @@ impl Rule {
         match self.r#type.as_str() {
             "http" => {
                 if self.signal.is_empty() { return false; }
-                // 信号在最近 60 秒内被推过即算命中 (瞬态用)
                 if let Some(t) = signals.get(&self.signal) {
-                    t.elapsed().as_secs() < 60
+                    if self.keep {
+                        // 保持态: 信号存在于集合即命中 (撤销后移出集合即失活)
+                        true
+                    } else {
+                        // 瞬态: 信号在最近 60 秒内被推过即命中
+                        t.elapsed().as_secs() < 60
+                    }
                 } else { false }
             }
             "cpu" => cmp_val(m.get_cpu_usage(), &self.op, self.val),
