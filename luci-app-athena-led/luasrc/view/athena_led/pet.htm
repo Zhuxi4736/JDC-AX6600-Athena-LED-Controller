@@ -178,7 +178,7 @@ local url_gpio    = luci.dispatcher.build_url("admin","services","athena_led","p
 
 <script type="text/javascript">
 var PET_ANIM = [['pet_thinking.bin','思考中'],['pet_run.bin','奔跑'],['pet_wave.bin','招手'],['pet_jump.bin','跳跃'],['pet_failed.bin','失败/报错'],['pet_love.bin','爱心'],['pet_waiting.bin','等待'],['pet_idle.bin','待机']];
-var PET_MODS = [['cpu','CPU 占用率 %'],['updl','实时上下行速率'],['mem','内存占用率 %'],['load','系统负载'],['time','时钟'],['temp','芯片温度']];
+var PET_MODS = [['cpu','CPU 占用率 %'],['updl','实时上下行速率'],['mem','内存占用率 %'],['load','系统负载'],['temp','芯片温度'],['weather','天气（含温度，自动定位）'],['time','时钟(时分)'],['timeSec','时钟(到秒)'],['date','日期(月-日)'],['week','星期']];
 var URL_LOAD='<%=url_load%>';
 var URL_SAVE='<%=url_save%>';
 var URL_EN='<%=url_en%>';
@@ -462,7 +462,7 @@ document.getElementById('modalOk').addEventListener('click', function(){
 // ---------- 加载 / 保存 ----------
 fetch(URL_LOAD).then(function(r){return r.json();}).then(function(j){
   try{ var o=JSON.parse(j.data||'{}'); if(o && o.states) STATES=o.states; }catch(e){}
-  if(!STATES.length){ STATES=[ {id:'idle',name:'默认·悠闲',is_default:true,priority:0,persistent:true,hold_secs:10,trigger:null,substates:[{content:'module:time',mode:'static',speed:100,duration:5,leds:{clock:0,medal:0,up:0,down:0}},{content:'module:updl',mode:'flow',speed:80,duration:5,leds:{clock:0,medal:0,up:0,down:0}}]} ]; }
+  if(!STATES.length){ STATES=[ {id:'idle',name:'默认·悠闲',is_default:true,priority:0,persistent:true,hold_secs:10,trigger:null,substates:[{content:'module:weather',mode:'flow',speed:90,duration:8,leds:{clock:0,medal:0,up:0,down:0}},{content:'module:timeSec',mode:'static',speed:100,duration:4,leds:{clock:0,medal:0,up:0,down:0}}]} ]; }
   renderList(); renderSignals();
 }).catch(function(){ renderList(); renderSignals(); });
 

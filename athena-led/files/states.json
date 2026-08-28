@@ -9,9 +9,8 @@
       "hold_secs": 10,
       "trigger": null,
       "substates": [
-        { "content": "module:time", "mode": "static", "speed": 100, "duration": 5, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } },
-        { "content": "module:updl", "mode": "flow", "speed": 80, "duration": 5, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } },
-        { "content": "module:temp", "mode": "static", "speed": 100, "duration": 5, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } }
+        { "content": "module:weather", "mode": "flow", "speed": 90, "duration": 8, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } },
+        { "content": "module:timeSec", "mode": "static", "speed": 100, "duration": 4, "leds": { "clock": 0, "medal": 0, "up": 0, "down": 0 } }
       ]
     },
     {
