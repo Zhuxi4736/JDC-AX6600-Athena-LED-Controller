@@ -358,8 +358,9 @@ pub async fn process_loop(
                         f
                     };
                     if sub.content == "blank" {
-                        // 🌟 [v2.7.0] 黑屏子状态：屏幕熄灭并停留 duration 秒
+                        // 🌟 [v2.7.0] 黑屏子状态：主屏熄灭，但机身指示灯按本子状态的 leds 独立控制
                         let _ = screen.power(false, 0);
+                        let _ = screen.write_data(b"", led_flag).await;
                         tokio::time::sleep(Duration::from_secs(sub.duration.max(1))).await;
                     } else if sub.content.ends_with(".bin") {
                         let _ = screen.play_animation(&sub.content, sub.duration, led_flag).await;
